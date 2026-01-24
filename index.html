@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Controller</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+	.loading-overlay { 
+	    display: none; 
+	    position: fixed; 
+	    top: 0; 
+	    left: 0; 
+	    width: 100%; 
+	    height: 100%; 
+	    background: rgba(15, 23, 42, 0.9); 
+	    z-index: 9000; /* Turunin dikit dari 9999 */
+	    justify-content: center; 
+	    align-items: center; 
+	    backdrop-filter: blur(4px);
+	}
+	
+.ac-results {
+    max-height: 200px; /* Batasi tinggi maksimal */
+    overflow-y: auto;  /* Munculin scroll kalau kebanyakan */
+    border-radius: 12px;
+    background: white;
+}
+
+.ac-item {
+    padding: 12px 16px; /* Padding biar sama leganya dengan input */
+    cursor: pointer;
+    font-size: 14px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.ac-item:last-child {
+    border-bottom: none;
+}
+
+.ac-item:hover {
+    background-color: #f8fafc;
+    color: #4f46e5;
+}
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .active-tab { border-bottom: 3px solid #4f46e5; color: #4f46e5; background-color: #f5f3ff; }
+        .ac-results { 
+            position: absolute; width: 100%; max-height: 250px; overflow-y: auto; 
+            background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; 
+            z-index: 50; margin-top: 4px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: none;
+        }
+        .ac-item { padding: 12px 16px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f1f5f9; transition: all 0.2s; }
+        .ac-item:hover { background: #f5f3ff; color: #4f46e5; padding-left: 20px; }
+        input, select, textarea { transition: all 0.2s; }
+        input:focus, select:focus { border-color: #4f46e5 !important; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    </style>
+</head>
+<body class="text-slate-800 pb-20">
+
+    <div id="loader" class="loading-overlay">
+        <div class="flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-white text-xs font-bold tracking-[0.2em] uppercase">Processing Data</p>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto p-4 md:p-8">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <i data-lucide="shield-check" class="text-indigo-600 w-8 h-8"></i>
+                    <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">CASH<span class="text-indigo-600">CONTROLLER</span></h1>
+                </div>
+                <p class="text-slate-400 text-[11px] font-semibold uppercase tracking-widest">Enterprise Budgetary Control System</p>
+            </div>
+            <div class="flex items-center gap-4 bg-white p-2 px-4 rounded-full shadow-sm border border-slate-200">
+                <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    GATEWAY ACTIVE
+                </div>
+                <div class="h-4 w-px bg-slate-200"></div>
+                <button onclick="location.reload()" class="text-slate-400 hover:text-indigo-600 transition-colors">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <div id="budgetCards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+            <div class="h-24 bg-white rounded-xl border border-slate-200 animate-pulse"></div>
+            <div class="h-24 bg-white rounded-xl border border-slate-200 animate-pulse"></div>
+            <div class="h-24 bg-white rounded-xl border border-slate-200 animate-pulse"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+            <nav class="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto scrollbar-hide">
+                <button onclick="switchTab('transaksi', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider active-tab flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Transaction
+                </button>
+                <button onclick="switchTab('budget', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 border-l border-slate-100">
+                    <i data-lucide="wallet" class="w-4 h-4"></i> Allocation
+                </button>
+                <button onclick="switchTab('settlement', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 border-l border-slate-100">
+                    <i data-lucide="clipboard-check" class="w-4 h-4"></i> Settlement
+                </button>
+                <button onclick="switchTab('rekap', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 border-l border-slate-100">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports
+                </button>
+            </nav>
+
+            <div class="p-8">
+                <div id="tab-transaksi" class="tab-content active space-y-6">
+                    <div class="flex justify-between items-end border-b border-slate-100 pb-4 mb-6">
+                        <div>
+                            <h3 id="form-title" class="text-xl font-bold text-slate-800">New Transaction</h3>
+                            <p class="text-xs text-slate-400">Record reimbursement or down payment requests</p>
+                        </div>
+                        <button onclick="resetForm()" class="group flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3 transition-transform group-hover:rotate-[-45deg]"></i> Clear Form
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Posting Date</label>
+                            <input type="date" id="tr-tgl" class="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm">
+                        </div>
+
+<div class="space-y-1 ac-wrapper">
+    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Requester Name</label>
+    
+    <div class="relative w-full">
+        <input type="text" 
+               id="tr-user" 
+               onkeyup="filterAC(this, 'ac-user-list')" 
+               placeholder="Search employee name..." 
+               class="w-full h-[50px] px-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+        
+        <div id="ac-user-list" 
+             class="ac-results hidden absolute left-0 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+        </div>
+    </div>
+</div>
+
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div id="kat-container" class="space-y-1">
+                            <label class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest ml-1">Primary Category</label>
+                            <select id="tr-kategori" class="w-full p-3 border border-slate-200 rounded-xl bg-white text-sm font-bold appearance-none">
+                                <option value="">-- FETCHING CATEGORIES --</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Cost Center (PIC)</label>
+                            <select id="tr-budgetRef" class="w-full p-3 border border-slate-200 rounded-xl bg-white text-sm font-medium"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div id="tipe-container" class="space-y-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Transaction Type</label>
+                            <select id="tr-tipe" class="w-full p-3 border border-slate-200 rounded-xl font-bold text-sm">
+                                <option value="Reimburse">REIMBURSEMENT</option>
+                                <option value="Panjer">DOWN PAYMENT (PANJER)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Total Valuation</label>
+                            <div class="relative">
+                                <input type="text" id="tr-total" placeholder="0" readonly class="w-full p-4 border border-slate-200 rounded-xl font-extrabold bg-slate-50 text-indigo-600 text-2xl text-right pr-12">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold">IDR</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 border-dashed">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="list-ordered" class="w-4 h-4 text-slate-400"></i>
+                                <span class="text-[10px] font-extrabold uppercase text-slate-400 tracking-[0.2em]">Itemized Audit Trail</span>
+                            </div>
+                            <button onclick="addNotaRow()" class="group flex items-center gap-2 bg-indigo-600 text-white text-[10px] font-bold px-4 py-2 rounded-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                                <i data-lucide="plus" class="w-3 h-3"></i> ADD LINE ITEM
+                            </button>
+                        </div>
+                        <div id="tr-notaList" class="space-y-3"></div>
+                    </div>
+
+                    <div id="file-main-container" class="space-y-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Document Attachment</label>
+                        <div class="relative border-2 border-dashed border-slate-200 rounded-xl p-4 bg-white hover:border-indigo-300 transition-colors">
+                            <input type="file" id="tr-file" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                        </div>
+                    </div>
+
+                    <button onclick="saveTransaction()" id="btnSubmit" class="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold text-sm shadow-xl hover:bg-indigo-600 transition-all active:scale-[0.98] uppercase tracking-[0.3em] flex items-center justify-center gap-3">
+                        <i data-lucide="save" class="w-5 h-5"></i> Commit Transaction
+                    </button>
+                </div>
+
+                <div id="tab-budget" class="tab-content space-y-6">
+                    <div class="border-b border-slate-100 pb-4 mb-6">
+                        <h3 class="text-xl font-bold text-slate-800">Budget Allocation</h3>
+                        <p class="text-xs text-slate-400">Add new approved budget from Head Office</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Approval Date</label>
+                        <input type="date" id="bg-tgl" class="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm"></div>
+                        <div class="space-y-1 ac-wrapper"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">PIC Owner</label>
+                        <input type="text" id="bg-pic" onkeyup="filterAC(this, 'ac-pic-list')" placeholder="Select PIC..." class="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm font-bold uppercase">
+                        <div id="ac-pic-list" class="ac-results"></div></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Budget Code</label>
+                        <input type="text" id="bg-kode" placeholder="e.g., MKT-2024" class="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold uppercase"></div>
+                        <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Approved Amount</label>
+                        <input type="text" id="bg-nominal" oninput="formatRupiah(this)" placeholder="0" class="w-full p-3 border border-slate-200 rounded-xl font-extrabold text-indigo-600 text-lg"></div>
+                    </div>
+                    <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Memo / Purpose</label>
+                    <textarea id="bg-ket" class="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50" rows="3" placeholder="Enter allocation details..."></textarea></div>
+                    <button onclick="saveNewBudget()" class="w-full bg-slate-900 text-white p-5 rounded-2xl font-bold text-sm uppercase tracking-[0.3em] hover:bg-emerald-600 transition-all">Authorize Allocation</button>
+                </div>
+
+                <div id="tab-settlement" class="tab-content space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800">Pending Settlements</h3>
+                            <p class="text-xs text-slate-400">Outstanding down payments awaiting reconciliation</p>
+                        </div>
+                        <button onclick="loadPendingPanjer()" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                    <div id="list-panjer" class="grid grid-cols-1 gap-4">
+                        <div class="text-center py-20 text-slate-300">
+                            <i data-lucide="search" class="w-12 h-12 mx-auto mb-2 opacity-20"></i>
+                            <p class="text-xs font-medium uppercase tracking-widest">Scanning for pending items...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-rekap" class="tab-content space-y-8">
+                    <div class="bg-indigo-900 rounded-3xl p-8 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden">
+                        <i data-lucide="file-text" class="absolute right-[-20px] top-[-20px] w-48 h-48 text-white opacity-5 rotate-12"></i>
+                        <h3 class="text-xl font-extrabold uppercase tracking-tighter mb-6 flex items-center gap-2">
+                            <i data-lucide="zap" class="text-amber-400 w-5 h-5"></i> Ledger Engine
+                        </h3>
+                        <div class="space-y-4 ac-wrapper relative z-10">
+                            <label class="text-[10px] font-bold text-indigo-300 uppercase tracking-[0.2em] ml-1">Search Cost Center</label>
+                            <input type="text" id="rk-kode" onkeyup="filterAC(this, 'ac-kode-rekap')" placeholder="Enter Budget Code..." class="w-full p-4 rounded-2xl bg-white/10 border border-white/20 text-white font-bold placeholder-indigo-300 outline-none focus:bg-white/20 transition-all">
+                            <div id="ac-kode-rekap" class="ac-results text-slate-800"></div>
+                        </div>
+                        <button onclick="generateReport()" class="w-full mt-6 bg-white text-indigo-900 font-extrabold p-5 rounded-2xl hover:bg-amber-400 transition-all uppercase text-xs tracking-[0.3em] shadow-xl shadow-indigo-950/20">Analyze Records</button>
+                    </div>
+
+                    <div id="rekap-result" class="hidden animate-fadeIn">
+                        <div class="bg-white border border-slate-200 p-8 rounded-3xl shadow-sm">
+                            <div class="flex justify-between items-start border-b border-slate-100 pb-6 mb-6">
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Custodian / PIC</p>
+                                    <h4 id="res-pic" class="font-extrabold text-2xl text-slate-900">---</h4>
+                                    <span id="res-kode" class="inline-block mt-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black tracking-widest uppercase">---</span>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cumulative Expense</p>
+                                    <p id="res-total" class="text-3xl font-black text-slate-900 tracking-tighter">Rp 0</p>
+                                </div>
+                            </div>
+                            <div id="res-detail" class="space-y-3 mb-8"></div>
+                            <a id="res-folder" href="#" target="_blank" class="flex items-center justify-center gap-3 w-full bg-slate-900 text-white p-5 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-indigo-600 transition-all">
+                                <i data-lucide="folder-open" class="w-4 h-4"></i> Access Document Repository
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzLdEG9eIGcquEjV9N_541wxNY6VO56oLRd9hHmZYhpicg9rtt8azYcj5hHQLh6UamXeQ/exec"; // PASTIIN INI DIISI BRO
+        let MASTER_DATA = { users: [], budgets: [], kategori: [] };
+
+        window.onload = () => {
+            lucide.createIcons();
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('tr-tgl').value = today;
+            document.getElementById('bg-tgl').value = today;
+            addNotaRow();
+            fetchData();
+        };
+
+        // --- CUSTOM UI NOTIFICATIONS ---
+        const Toast = Swal.mixin({
+            toast: true, position: 'top-end', showConfirmButton: false, 
+            timer: 3000, timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+
+        function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
+
+        function formatRupiah(el) {
+            let val = el.value.replace(/[^,\d]/g, "").toString();
+            let split = val.split(",");
+            let sisa = split[0].length % 3;
+            let rupiah = split[0].substr(0, sisa);
+            let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+            if (ribuan) {
+                let separator = sisa ? "." : "";
+                rupiah += separator + ribuan.join(".");
+            }
+            el.value = split[1] != undefined ? rupiah + "," + split[1] : rupiah;
+        }
+
+        function cleanNominal(val) { return Number(val.replace(/\./g, "")); }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            btn.classList.add('active-tab');
+            if(tabId === 'settlement') loadPendingPanjer();
+        }
+
+        // --- AUTOCOMPLETE ENGINE ---
+        function filterAC(input, listId) {
+            const list = document.getElementById(listId);
+            const val = input.value.toUpperCase();
+            let source = [];
+            if(listId.includes('user') || listId.includes('pic')) source = MASTER_DATA.users;
+            if(listId.includes('kode')) source = MASTER_DATA.budgets.map(b => b.kode);
+            const filtered = source.filter(s => s.toUpperCase().includes(val));
+            if(val && filtered.length > 0) {
+                list.style.display = 'block';
+                list.innerHTML = filtered.map(s => `<div class="ac-item" onclick="selectAC('${input.id}', '${s}', '${listId}')">${s}</div>`).join('');
+            } else { list.style.display = 'none'; }
+        }
+
+        function selectAC(inputId, val, listId) {
+            document.getElementById(inputId).value = val;
+            document.getElementById(listId).style.display = 'none';
+        }
+
+        // --- DATA CORE ---
+        async function fetchData() {
+            showLoader(true);
+            try {
+                const [resSum, resKat, resUser] = await Promise.all([
+                    fetch(`${GAS_URL}?action=getSummary`),
+                    fetch(`${GAS_URL}?action=getKategori`),
+                    fetch(`${GAS_URL}?action=getUsers`)
+                ]);
+                MASTER_DATA.budgets = await resSum.json();
+                MASTER_DATA.kategori = await resKat.json();
+                MASTER_DATA.users = await resUser.json();
+                renderDashboard();
+                renderBudgetDropdown();
+                renderKategoriDropdown();
+            } catch (e) { 
+                Toast.fire({ icon: 'error', title: 'Connection Failure' });
+            }
+            showLoader(false);
+        }
+
+        function renderDashboard() {
+            const container = document.getElementById('budgetCards');
+            container.innerHTML = MASTER_DATA.budgets.map(b => {
+                const usedPercent = Math.min(((b.limit - b.sisa) / b.limit) * 100, 100).toFixed(0);
+                let colorClass = 'bg-indigo-600';
+                if(usedPercent > 80) colorClass = 'bg-amber-500';
+                if(usedPercent > 95) colorClass = 'bg-rose-600';
+
+                return `
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-full uppercase tracking-widest">${b.kode}</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">${b.pic}</span>
+                    </div>
+                    <p class="text-xl font-extrabold text-slate-900 tracking-tighter">Rp ${Number(b.sisa).toLocaleString()}</p>
+                    <div class="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div class="${colorClass} h-full transition-all duration-1000" style="width: ${usedPercent}%"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderBudgetDropdown() {
+            const select = document.getElementById('tr-budgetRef');
+            select.innerHTML = '<option value="">-- SELECT COST CENTER --</option>';
+            MASTER_DATA.budgets.forEach(b => {
+                select.add(new Option(`${b.pic} | ${b.kode}`, b.idBudget));
+            });
+        }
+
+        function renderKategoriDropdown() {
+            const select = document.getElementById('tr-kategori');
+            select.innerHTML = '<option value="">-- SELECT CATEGORY --</option>';
+            MASTER_DATA.kategori.forEach(k => select.add(new Option(k, k)));
+        }
+
+        function addNotaRow() {
+            const container = document.getElementById('tr-notaList');
+            const isSettleMode = document.getElementById('btnSubmit').hasAttribute('data-settle-id');
+            const div = document.createElement('div');
+            div.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3 animate-fadeIn";
+            
+            const katOptions = MASTER_DATA.kategori.map(k => `<option value="${k}">${k}</option>`).join('');
+
+            div.innerHTML = `
+                <div class="flex gap-4 items-center">
+                    <div class="flex-1">
+                        <input type="text" placeholder="Detail description..." class="w-full p-2 text-sm desc-nota font-semibold border-b border-slate-200 outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="w-40 relative">
+                        <input type="text" oninput="formatRupiah(this); calculateTotal()" placeholder="0" class="w-full p-2 text-sm font-black text-right val-nota text-indigo-600 bg-indigo-50/50 rounded-lg outline-none pr-8">
+                        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold">IDR</span>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove(); calculateTotal()" class="text-slate-300 hover:text-rose-500 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div class="flex flex-col md:flex-row gap-4 ${isSettleMode ? '' : 'hidden'}">
+                    <div class="flex-1">
+                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Line Category</label>
+                        <select class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-slate-50 item-kategori font-bold uppercase outline-none">
+                            ${katOptions}
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Proof of Payment</label>
+                        <input type="file" class="w-full text-[10px] item-file file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-slate-900 file:text-white hover:file:bg-indigo-600 transition-all">
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+        }
+
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll('.val-nota').forEach(v => total += cleanNominal(v.value || "0"));
+            document.getElementById('tr-total').value = total.toLocaleString();
+            document.getElementById('tr-total').setAttribute('data-raw', total);
+        }
+
+        async function saveTransaction() {
+            const btn = document.getElementById('btnSubmit');
+            const settleId = btn.getAttribute('data-settle-id');
+            const items = [];
+            const descInputs = document.querySelectorAll('.desc-nota');
+            const valInputs = document.querySelectorAll('.val-nota');
+            const katInputs = document.querySelectorAll('.item-kategori');
+            const fileInputs = document.querySelectorAll('.item-file');
+
+            if(!document.getElementById('tr-user').value || !document.getElementById('tr-budgetRef').value || cleanNominal(document.getElementById('tr-total').value) <= 0) {
+                return Swal.fire({ icon: 'warning', title: 'Incomplete Data', text: 'Please fill all mandatory fields.', confirmButtonColor: '#4f46e5' });
+            }
+
+            showLoader(true);
+            for(let i=0; i < descInputs.length; i++) {
+                let itemFileData = null;
+                if (settleId && fileInputs[i] && fileInputs[i].files.length > 0) {
+                    const file = fileInputs[i].files[0];
+                    const base64 = await toBase64(file);
+                    itemFileData = { base64: base64.split(',')[1], type: file.type, name: file.name };
+                }
+                items.push({
+                    rincian: descInputs[i].value,
+                    nominal: cleanNominal(valInputs[i].value || "0"),
+                    kategori: settleId ? katInputs[i].value : document.getElementById('tr-kategori').value,
+                    file: itemFileData
+                });
+            }
+
+            let mainFile = null;
+            if (!settleId) {
+                const fInput = document.getElementById('tr-file');
+                if (fInput.files.length > 0) {
+                    const file = fInput.files[0];
+                    const base64 = await toBase64(file);
+                    mainFile = { base64: base64.split(',')[1], type: file.type, name: file.name };
+                }
+            }
+
+            const data = {
+                tanggal: document.getElementById('tr-tgl').value,
+                user: document.getElementById('tr-user').value,
+                idBudgetRef: document.getElementById('tr-budgetRef').value,
+                nominal: document.getElementById('tr-total').getAttribute('data-raw'),
+                settleId: settleId || null,
+                items: items,
+                tipe: settleId ? "Settlement" : document.getElementById('tr-tipe').value,
+                statusNota: settleId ? "CLEAR" : (document.getElementById('tr-tipe').value === 'Panjer' ? 'PENDING' : 'CLEAR'),
+                kategori: document.getElementById('tr-kategori').value,
+                rincianNota: items.map(it => `${it.rincian}: Rp ${it.nominal.toLocaleString()}`).join(" | ")
+            };
+
+            sendData("save", data, mainFile);
+        }
+
+async function sendData(action, data, file = null) {
+    try {
+        const response = await fetch(GAS_URL, {
+            method: "POST",
+            body: JSON.stringify({ action, data, file })
+        });
+        const resJson = await response.json();
+        
+        showLoader(false); 
+
+        Swal.fire({ 
+            icon: 'success', 
+            title: 'Success', 
+            text: resJson.message, 
+            confirmButtonColor: '#4f46e5' 
+        }).then(() => location.reload());
+
+    } catch (e) { 
+        showLoader(false);
+        Swal.fire({ 
+            icon: 'error', 
+            title: 'Transaction Failed', 
+            text: 'Internal Server Error' 
+        }); 
+    }
+}
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = e => reject(e);
+        });
+
+        // --- ENHANCED SETTLEMENT LOGIC (H+14) ---
+        async function loadPendingPanjer() {
+            const container = document.getElementById('list-panjer');
+            container.innerHTML = '<div class="text-center py-20 animate-pulse text-xs font-bold text-slate-400 tracking-widest uppercase">Synchronizing Ledger...</div>';
+            try {
+                const res = await fetch(`${GAS_URL}?action=getPending`);
+                const data = await res.json();
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-bold uppercase tracking-widest">No outstanding panjer found</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(p => {
+                    const tglPanjer = new Date(p.tanggal);
+                    const tglDeadline = new Date(p.tanggal);
+                    tglDeadline.setDate(tglDeadline.getDate() + 14);
+                    
+                    const now = new Date();
+                    const isOverdue = now > tglDeadline;
+                    const diffDays = Math.ceil((tglDeadline - now) / (1000 * 60 * 60 * 24));
+
+                    return `
+                    <div class="bg-white border ${isOverdue ? 'border-rose-200' : 'border-slate-200'} p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all hover:shadow-md">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-tighter">${p.idTrans}</span>
+                                <span class="text-[10px] font-bold ${isOverdue ? 'text-rose-500' : 'text-slate-400'} uppercase">
+                                    <i data-lucide="calendar" class="inline w-3 h-3 mr-1"></i>
+                                    Issued: ${tglPanjer.toLocaleDateString('id-ID')}
+                                </span>
+                            </div>
+                            <p class="font-extrabold text-slate-800 uppercase tracking-tight">${p.user}</p>
+                            <div class="flex items-center gap-3">
+                                <p class="text-sm font-black text-slate-900">Rp ${Number(p.nominal).toLocaleString()}</p>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}">
+                                    ${isOverdue ? 'Overdue' : 'Due in ' + diffDays + ' days'}
+                                </span>
+                            </div>
+                        </div>
+                        <button onclick="openSettleModal('${p.idTrans}', '${p.user}', '${p.idBudgetRef}')" class="w-full md:w-auto bg-slate-900 text-white text-[10px] px-8 py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-indigo-600 shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2">
+                            Reconcile <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                        </button>
+                    </div>`;
+                }).join('');
+                lucide.createIcons();
+            } catch (e) { container.innerHTML = 'System Error'; }
+        }
+
+        function openSettleModal(idTrans, user, budgetRef) {
+            switchTab('transaksi', document.querySelector('[onclick*="transaksi"]'));
+            document.getElementById('tr-user').value = user;
+            document.getElementById('tr-budgetRef').value = budgetRef;
+            
+            // Hide single mode fields
+            document.getElementById('kat-container').classList.add('hidden');
+            document.getElementById('tipe-container').classList.add('hidden');
+            document.getElementById('file-main-container').classList.add('hidden');
+            
+            const btn = document.getElementById('btnSubmit');
+            btn.setAttribute('data-settle-id', idTrans);
+            btn.innerHTML = `<i data-lucide="check-square" class="w-5 h-5"></i> Confirm Multi-Line Settlement`;
+            btn.className = "w-full bg-rose-600 text-white p-5 rounded-2xl font-bold text-sm uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3";
+            
+            document.getElementById('form-title').innerText = "Settlement Logic: " + idTrans;
+            document.getElementById('tr-notaList').innerHTML = ""; 
+            addNotaRow();
+            lucide.createIcons();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() { 
+            Swal.fire({
+                title: 'Clear form?',
+                text: "All unsaved progress will be lost.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#4f46e5',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Yes, clear it'
+            }).then((result) => { if (result.isConfirmed) location.reload(); });
+        }
+
+        async function saveNewBudget() {
+            const data = {
+                tanggal: document.getElementById('bg-tgl').value,
+                pic: document.getElementById('bg-pic').value,
+                kodeBudget: document.getElementById('bg-kode').value,
+                nominal: document.getElementById('bg-nominal').value,
+                keterangan: document.getElementById('bg-ket').value
+            };
+            if(!data.pic || !data.kodeBudget || !data.nominal) return Swal.fire({ icon: 'warning', title: 'Incomplete Allocation Data' });
+            sendData("addBudget", data);
+        }
+
+        async function generateReport() {
+            const kode = document.getElementById('rk-kode').value;
+            if(!kode) return Toast.fire({ icon: 'warning', title: 'Code Required' });
+            showLoader(true);
+            try {
+                const res = await fetch(`${GAS_URL}?action=getRekap&kode=${kode}`);
+                const data = await res.json();
+                document.getElementById('rekap-result').classList.remove('hidden');
+                document.getElementById('res-pic').innerText = data.pic;
+                document.getElementById('res-kode').innerText = data.kode;
+                document.getElementById('res-total').innerText = "Rp " + data.total.toLocaleString();
+                document.getElementById('res-folder').href = data.folder || "#";
+                
+                const detailDiv = document.getElementById('res-detail');
+                detailDiv.innerHTML = '<p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-6 mb-2">Category Breakdown</p>';
+                for (const [kat, nominal] of Object.entries(data.detail)) {
+                    detailDiv.innerHTML += `
+                        <div class="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <span class="font-bold text-slate-600 text-[11px] uppercase tracking-wider">${kat}</span>
+                            <span class="font-black text-slate-900">Rp ${nominal.toLocaleString()}</span>
+                        </div>`;
+                }
+            } catch (e) { Toast.fire({ icon: 'error', title: 'Analysis Error' }); }
+            showLoader(false);
+        }
+        
+// Logic untuk menutup semua list autocomplete saat klik di luar
+document.addEventListener('click', function(e) {
+    // Jika yang diklik bukan input autocomplete dan bukan isi list-nya
+    if (!e.target.closest('.relative')) {
+        const allLists = document.querySelectorAll('.ac-results');
+        allLists.forEach(list => {
+            list.classList.add('hidden');
+            list.innerHTML = ''; // Opsional: bersihkan isinya
+        });
+    }
+});
+
+// Tambahan: Tutup kalau tekan tombol Escape (Esc)
+document.addEventListener('keydown', function(e) {
+    if (e.key === "Escape") {
+        const allLists = document.querySelectorAll('.ac-results');
+        allLists.forEach(list => list.classList.add('hidden'));
+    }
+});
+    </script>
+</body>
+</html>
