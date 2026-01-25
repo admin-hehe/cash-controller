@@ -113,6 +113,10 @@
                 <button onclick="switchTab('rekap', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 border-l border-slate-100">
                     <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Reports
                 </button>
+
+<button onclick="switchTab('audit', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 border-l border-slate-100">
+    <i data-lucide="shield-alert" class="w-4 h-4"></i> Audit
+</button>
             </nav>
 
             <div class="p-8">
@@ -282,12 +286,39 @@
                     </div>
                 </div>
 
+<div id="tab-audit" class="tab-content space-y-6">
+    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+        <div>
+            <h3 class="text-xl font-bold text-slate-800">Compliance Audit</h3>
+            <p class="text-xs text-slate-400">Manage missing receipts and payment status</p>
+        </div>
+        <button onclick="loadAuditData()" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+            <i data-lucide="refresh-cw" class="w-5 h-4"></i>
+        </button>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="border-b border-slate-100">
+                    <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction</th>
+                    <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Receipt</th>
+                    <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Payment</th>
+                    <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody id="audit-table-body" class="divide-y divide-slate-50">
+                </tbody>
+        </table>
+    </div>
+</div>
+
             </div>
         </div>
     </div>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbzLdEG9eIGcquEjV9N_541wxNY6VO56oLRd9hHmZYhpicg9rtt8azYcj5hHQLh6UamXeQ/exec"; // PASTIIN INI DIISI BRO
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbznk4szh_LrMElwT-FSptyXLfsm0W1r5vBQ2ctXFEIl13df6siP8JNVsgJkxkNMey6MJQ/exec";
         let MASTER_DATA = { users: [], budgets: [], kategori: [] };
 
         window.onload = () => {
@@ -326,13 +357,15 @@
 
         function cleanNominal(val) { return Number(val.replace(/\./g, "")); }
 
-        function switchTab(tabId, btn) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
-            document.getElementById('tab-' + tabId).classList.add('active');
-            btn.classList.add('active-tab');
-            if(tabId === 'settlement') loadPendingPanjer();
-        }
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btn.classList.add('active-tab');
+    
+    if(tabId === 'settlement') loadPendingPanjer();
+    if(tabId === 'audit') loadAuditData();
+}
 
         // --- AUTOCOMPLETE ENGINE ---
         function filterAC(input, listId) {
@@ -683,6 +716,125 @@ document.addEventListener('keydown', function(e) {
         allLists.forEach(list => list.classList.add('hidden'));
     }
 });
+
+// --- AUDIT SYSTEM LOGIC ---
+async function loadAuditData() {
+    const tbody = document.getElementById('audit-table-body');
+    tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-xs text-slate-400">Fetching audit records...</td></tr>';
+    
+    try {
+        const res = await fetch(`${GAS_URL}?action=getHistory`);
+        const data = await res.json();
+        
+        // Filter cuma yang bermasalah (MISSING atau UNPAID)
+        const problematic = data.filter(item => item.statusNota === 'MISSING' || item.statusNota === 'PENDING' || item.paymentStatus === 'UNPAID');
+        
+        if (problematic.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-xs text-emerald-500 font-bold uppercase">All Clean! No compliance issues found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = problematic.map(item => `
+            <tr>
+                <td class="py-4 px-2">
+                    <p class="text-[11px] font-bold text-slate-800">${item.user}</p>
+                    <p class="text-[9px] text-slate-400">${item.idTrans} | ${item.tipe} | ${item.kategori} | ${item.rincian}</p>
+                </td>
+                <td class="py-4 px-2 text-center">
+                    <span class="px-2 py-1 rounded text-[9px] font-black ${item.statusNota === 'CLEAR' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
+                        ${item.statusNota}
+                    </span>
+                </td>
+                <td class="py-4 px-2 text-center">
+                    <span class="px-2 py-1 rounded text-[9px] font-black ${item.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
+                        ${item.paymentStatus}
+                    </span>
+                </td>
+                <td class="py-4 px-2 text-right space-x-1">
+                    ${item.statusNota === 'MISSING' || 'PENDING' ? `
+                        <button onclick="triggerUploadReceipt('${item.idTrans}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all">
+                            <i data-lucide="upload-cloud" class="w-3 h-3"></i>
+                        </button>
+                    ` : ''}
+                    ${item.paymentStatus === 'UNPAID' ? `
+                        <button onclick="markAsPaid('${item.idTrans}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all">
+                            <i data-lucide="check" class="w-3 h-3"></i>
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+        lucide.createIcons();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-rose-500">Failed to load audit data</td></tr>';
+    }
+}
+
+// Trigger upload file (Hidden input)
+async function triggerUploadReceipt(idTrans) {
+    const { value: file } = await Swal.fire({
+        title: 'Upload Receipt',
+        input: 'file',
+        inputAttributes: { 'accept': 'image/*', 'aria-label': 'Upload your receipt' },
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5'
+    });
+
+    if (file) {
+        showLoader(true);
+        const base64 = await toBase64(file);
+        const fileData = { base64: base64.split(',')[1], type: file.type, name: file.name };
+        
+        try {
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "updateNotaOnly", idTrans: idTrans, file: fileData })
+            });
+            const res = await response.json();
+            showLoader(false);
+            Swal.fire('Updated!', res.message, 'success');
+            loadAuditData();
+        } catch (e) {
+            showLoader(false);
+            Swal.fire('Error', 'Failed to upload', 'error');
+        }
+    }
+}
+
+async function markAsPaid(idTrans) {
+    const result = await Swal.fire({
+        title: 'Confirm Payment',
+        text: `Mark ${idTrans} as PAID?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#10b981'
+    });
+
+    if (result.isConfirmed) {
+        showLoader(true);
+        try {
+const response = await fetch(GAS_URL, {
+    method: "POST",
+    // Mode no-cors ditiadakan karena kita butuh return JSON
+    body: JSON.stringify({ action: "togglePayment", idTrans: idTrans, newStatus: "PAID" })
+});
+
+const res = await response.json();
+showLoader(false);
+
+// Cek status dari return fungsi GAS
+if (res.status === "Success") {
+    Swal.fire('Updated!', res.message, 'success');
+} else {
+    Swal.fire('Failed!', res.message || 'ID not found', 'error');
+}
+loadAuditData();
+        } catch (e) {
+            showLoader(false);
+            Swal.fire('Error', 'Failed to update status', 'error');
+        }
+    }
+}
     </script>
 </body>
 </html>
