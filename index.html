@@ -937,7 +937,7 @@ async function triggerUploadReceipt(idTrans) {
     const { value: file } = await Swal.fire({
         title: 'Upload Receipt',
         input: 'file',
-        inputAttributes: { 'accept': 'image/*', 'aria-label': 'Upload your receipt' },
+        inputAttributes: { 'accept': 'application/pdf,image/*', 'aria-label': 'Upload your receipt' },
         showCancelButton: true,
         confirmButtonColor: '#4f46e5'
     });
