@@ -816,11 +816,7 @@ async function loadAuditData() {
             item.statusNota === 'PENDING' || 
             item.paymentStatus === 'UNPAID'
         );
-        
-        filteredAuditData = [...auditDataRaw];
-        auditCurrentPage = 1;
-        renderAuditTable();
-        
+        handleAuditSearch();
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-rose-500 font-bold">Failed to load audit data</td></tr>';
     }
@@ -923,8 +919,8 @@ function renderAuditTable() {
 function handleAuditSearch() {
     const query = document.getElementById('audit-search').value.toLowerCase();
     filteredAuditData = auditDataRaw.filter(item => 
-        item.user.toLowerCase().includes(query) || 
-        item.idTrans.toLowerCase().includes(query)
+        (item.user && item.user.toLowerCase().includes(query)) || 
+        (item.idTrans && item.idTrans.toLowerCase().includes(query))
     );
     auditCurrentPage = 1; // Reset ke halaman 1 setiap kali cari
     renderAuditTable();
@@ -958,8 +954,9 @@ async function triggerUploadReceipt(idTrans) {
             });
             const res = await response.json();
             showLoader(false);
-            Swal.fire('Updated!', res.message, 'success');
-            loadAuditData();
+            await Swal.fire('Updated!', res.message, 'success');
+            await loadAuditData();
+			handleAuditSearch();
         } catch (e) {
             showLoader(false);
             Swal.fire('Error', 'Failed to upload', 'error');
