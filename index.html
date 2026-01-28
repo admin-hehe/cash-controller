@@ -69,7 +69,15 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .active-tab { border-bottom: 3px solid #4f46e5; color: #4f46e5; background-color: #f5f3ff; }
+        .active-tab { 
+		    border-bottom: 3px solid #4f46e5 !important; 
+		    color: #4f46e5 !important; 
+		    background-color: #f5f3ff; 
+		}
+		.mobile-bottom-nav .active-tab {
+		    border-bottom: none !important;
+		    border-top: 3px solid #4f46e5;
+		}
         .ac-results { 
             position: absolute; width: 100%; max-height: 250px; overflow-y: auto; 
             background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; 
@@ -356,11 +364,19 @@
         </div>
     </div>
     
-    <nav class="mobile-bottom-nav">
-    <button onclick="switchTab('transaksi', this)" ...> ... </button>
-    <button onclick="switchTab('settlement', this)" ...> ... </button>
-    <button onclick="switchTab('rekap', this)" ...> ... </button>
-    <button onclick="switchTab('audit', this)" ...> ... </button>
+<nav class="mobile-bottom-nav">
+    <button onclick="switchTab('transaksi', this)" class="tab-btn flex-1 flex flex-col items-center justify-center py-3 text-slate-400">
+        <i data-lucide="plus-circle"></i><span class="text-[9px] font-bold">New</span>
+    </button>
+    <button onclick="switchTab('settlement', this)" class="tab-btn flex-1 flex flex-col items-center justify-center py-3 text-slate-400 border-l border-slate-50">
+        <i data-lucide="clipboard-check"></i><span class="text-[9px] font-bold">Settle</span>
+    </button>
+    <button onclick="switchTab('rekap', this)" class="tab-btn flex-1 flex flex-col items-center justify-center py-3 text-slate-400 border-l border-slate-50">
+        <i data-lucide="bar-chart-3"></i><span class="text-[9px] font-bold">Report</span>
+    </button>
+    <button onclick="switchTab('audit', this)" class="tab-btn flex-1 flex flex-col items-center justify-center py-3 text-slate-400 border-l border-slate-50">
+        <i data-lucide="shield-alert"></i><span class="text-[9px] font-bold">Audit</span>
+    </button>
 </nav>
 
     <script>
@@ -409,12 +425,18 @@
 
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active-tab');
+        b.classList.add('text-slate-400');
+    });
     document.getElementById('tab-' + tabId).classList.add('active');
-    btn.classList.add('active-tab');
-    
+    if (btn) {
+        btn.classList.remove('text-slate-400');
+        btn.classList.add('active-tab');
+    }
     if(tabId === 'settlement') loadPendingPanjer();
     if(tabId === 'audit') loadAuditData();
+    lucide.createIcons();
 }
 
         // --- AUTOCOMPLETE ENGINE ---
