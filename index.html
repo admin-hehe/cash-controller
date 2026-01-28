@@ -10,6 +10,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
+    @media (max-width: 768px) {
+            .tab-btn span { display: none; } /* Sembunyiin teks di menu bawah biar ringkas */
+            .tab-btn i { width: 24px; height: 24px; }
+            .desktop-nav { display: none; }
+            .mobile-bottom-nav { 
+                display: flex; 
+                position: fixed; 
+                bottom: 0; 
+                left: 0; 
+                right: 0; 
+                background: white; 
+                border-top: 1px solid #e2e8f0; 
+                z-index: 100;
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .audit-table-header { display: none; } /* Sembunyiin header tabel di HP */
+        }
+        
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
 	.loading-overlay { 
 	    display: none; 
@@ -309,7 +327,7 @@
     
     <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
-            <thead>
+            <thead id="audit-table-head">
                 <tr class="border-b border-slate-100">
                     <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction</th>
                     <th class="py-4 px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Receipt</th>
@@ -337,6 +355,13 @@
             </div>
         </div>
     </div>
+    
+    <nav class="mobile-bottom-nav">
+    <button onclick="switchTab('transaksi', this)" ...> ... </button>
+    <button onclick="switchTab('settlement', this)" ...> ... </button>
+    <button onclick="switchTab('rekap', this)" ...> ... </button>
+    <button onclick="switchTab('audit', this)" ...> ... </button>
+</nav>
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbyLu842iDmHtQah-C25RI361eQ8MOYmfLWtGGpC1-Za-bJ2AZ2q6AZqf27NlbySVEC-CA/exec";
@@ -468,43 +493,56 @@ function switchTab(tabId, btn) {
             MASTER_DATA.kategori.forEach(k => select.add(new Option(k, k)));
         }
 
-        function addNotaRow() {
-            const container = document.getElementById('tr-notaList');
-            const isSettleMode = document.getElementById('btnSubmit').hasAttribute('data-settle-id');
-            const div = document.createElement('div');
-            div.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3 animate-fadeIn";
-            
-            const katOptions = MASTER_DATA.kategori.map(k => `<option value="${k}">${k}</option>`).join('');
+function addNotaRow() {
+    const container = document.getElementById('tr-notaList');
+    const isSettleMode = document.getElementById('btnSubmit').hasAttribute('data-settle-id');
+    const div = document.createElement('div');
+    
+    // 1. Pastikan ada 'relative' di sini (Udah bener)
+    div.className = "relative bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm animate-fadeIn mb-3";
+    
+    const katOptions = MASTER_DATA.kategori.map(k => `<option value="${k}">${k}</option>`).join('');
 
-            div.innerHTML = `
-                <div class="flex gap-4 items-center">
-                    <div class="flex-1">
-                        <input type="text" placeholder="Detail description..." class="w-full p-2 text-sm desc-nota font-semibold border-b border-slate-200 outline-none focus:border-indigo-500">
-                    </div>
-                    <div class="w-40 relative">
-                        <input type="text" oninput="formatRupiah(this); calculateTotal()" placeholder="0" class="w-full p-2 text-sm font-black text-right val-nota text-indigo-600 bg-indigo-50/50 rounded-lg outline-none pr-8">
-                        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 font-bold">IDR</span>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove(); calculateTotal()" class="text-slate-300 hover:text-rose-500 transition-colors">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
+    div.innerHTML = `
+        <button onclick="this.parentElement.remove(); calculateTotal()" 
+                class="absolute -top-2 -right-2 w-8 h-8 bg-white text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all shadow-md border border-rose-100 z-20">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+
+        <div class="flex flex-col md:flex-row gap-4">
+            <div class="flex-1 space-y-1 pr-6 md:pr-0">
+                <label class="text-[9px] font-bold text-slate-400 uppercase md:hidden">Description</label>
+                <input type="text" placeholder="What is this for?..." 
+                       class="w-full p-2 text-sm desc-nota font-semibold border-b-2 border-slate-100 outline-none focus:border-indigo-500 bg-transparent">
+            </div>
+            
+            <div class="w-full md:w-48 space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase md:hidden">Amount</label>
+                <div class="relative">
+                    <input type="text" oninput="formatRupiah(this); calculateTotal()" placeholder="0" 
+                           class="w-full p-2.5 text-sm font-black text-right val-nota text-indigo-600 bg-indigo-50/50 rounded-xl outline-none pr-10">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-indigo-300 font-bold">IDR</span>
                 </div>
-                <div class="flex flex-col md:flex-row gap-4 ${isSettleMode ? '' : 'hidden'}">
-                    <div class="flex-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Line Category</label>
-                        <select class="w-full text-xs p-2 border border-slate-200 rounded-lg bg-slate-50 item-kategori font-bold uppercase outline-none">
-                            ${katOptions}
-                        </select>
-                    </div>
-                    <div class="flex-1">
-                        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Proof of Payment</label>
-                        <input type="file" class="w-full text-[10px] item-file file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-slate-900 file:text-white hover:file:bg-indigo-600 transition-all">
-                    </div>
-                </div>
-            `;
-            container.appendChild(div);
-            lucide.createIcons();
-        }
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 ${isSettleMode ? '' : 'hidden'} pt-2 border-t border-slate-50">
+            <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Line Category</label>
+                <select class="w-full text-xs p-2.5 border border-slate-200 rounded-xl bg-slate-50 item-kategori font-bold uppercase outline-none">
+                    ${katOptions}
+                </select>
+            </div>
+            <div class="space-y-1">
+                <label class="text-[9px] font-bold text-slate-400 uppercase">Proof of Payment</label>
+                <input type="file" class="w-full text-[10px] item-file file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-slate-900 file:text-white">
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(div);
+    lucide.createIcons();
+}
 
         function calculateTotal() {
             let total = 0;
@@ -768,48 +806,89 @@ async function loadAuditData() {
 
 function renderAuditTable() {
     const tbody = document.getElementById('audit-table-body');
-    
-    // Hitung index pagination
     const start = (auditCurrentPage - 1) * auditRowsPerPage;
     const end = start + auditRowsPerPage;
     const paginatedItems = filteredAuditData.slice(start, end);
-    
+    const head = document.getElementById('audit-table-head');
+    // CEK APAKAH INI MOBILE (Lebar layar dibawah 768px)
+    const isMobile = window.innerWidth < 768;
+
     if (paginatedItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-xs text-slate-400 font-bold uppercase tracking-widest">No matching records found</td></tr>';
+        tbody.innerHTML = isMobile 
+            ? '<div class="text-center py-10 text-slate-400 text-xs font-bold uppercase">No records found</div>'
+            : '<tr><td colspan="4" class="py-10 text-center text-xs text-slate-400 font-bold uppercase tracking-widest">No matching records found</td></tr>';
     } else {
-        tbody.innerHTML = paginatedItems.map(item => `
-            <tr class="hover:bg-slate-50/50 transition-colors">
-                <td class="py-4 px-2">
-                    <p class="text-[11px] font-extrabold text-slate-800 uppercase tracking-tighter">${item.user}</p>
-                    <p class="text-[9px] text-slate-400 font-medium">${item.idTrans} | ${item.tipe} | ${item.rincian}</p>
-                </td>
-                <td class="py-4 px-2 text-center">
-                    <span class="px-2 py-0.5 rounded text-[9px] font-black ${item.statusNota === 'CLEAR' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
-                        ${item.statusNota}
-                    </span>
-                </td>
-                <td class="py-4 px-2 text-center">
-                    <span class="px-2 py-0.5 rounded text-[9px] font-black ${item.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
-                        ${item.paymentStatus}
-                    </span>
-                </td>
-                <td class="py-4 px-2 text-right space-x-1 whitespace-nowrap">
-                    ${item.statusNota !== 'CLEAR' ? `
-                        <button onclick="triggerUploadReceipt('${item.idTrans}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
-                            <i data-lucide="upload-cloud" class="w-3 h-3"></i>
-                        </button>
-                    ` : ''}
-                    ${item.paymentStatus === 'UNPAID' ? `
-                        <button onclick="markAsPaid('${item.idTrans}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
-                            <i data-lucide="check" class="w-3 h-3"></i>
-                        </button>
-                    ` : ''}
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = paginatedItems.map(item => {
+            if (isMobile) {
+            head.className = "hidden";
+    // Tampilan Kartu buat HP - Dibuat Full Width & Padding Pas
+    return `
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 mb-4 mx-1 animate-fadeIn">
+        <div class="flex justify-between items-start gap-2">
+            <div class="flex-1">
+                <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">${item.idTrans}</p>
+                <h3 class="text-base font-bold text-slate-800 leading-tight">${item.user}</h3>
+                <p class="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">${item.tipe} • ${item.rincian}</p>
+            </div>
+            <div class="flex flex-col gap-2 items-end">
+                <span class="px-2 py-1 rounded-lg text-[9px] font-black whitespace-nowrap ${item.statusNota === 'CLEAR' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
+                    NOTA: ${item.statusNota}
+                </span>
+                <span class="px-2 py-1 rounded-lg text-[9px] font-black whitespace-nowrap ${item.paymentStatus === 'PAID' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'}">
+                    PAY: ${item.paymentStatus}
+                </span>
+            </div>
+        </div>
+        
+        <div class="pt-3 border-t border-slate-50 flex gap-2">
+            ${item.statusNota !== 'CLEAR' ? `
+                <button onclick="triggerUploadReceipt('${item.idTrans}')" class="flex-1 flex items-center justify-center gap-2 py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[11px] font-bold uppercase active:scale-95 transition-all">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> UPLOAD
+                </button>
+            ` : ''}
+            ${item.paymentStatus === 'UNPAID' ? `
+                <button onclick="markAsPaid('${item.idTrans}')" class="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-[11px] font-bold uppercase shadow-lg shadow-emerald-100 active:scale-95 transition-all">
+                    <i data-lucide="check" class="w-4 h-4"></i> APPROVE
+                </button>
+            ` : ''}
+        </div>
+    </div>`;
+} else {
+                // Tampilan Baris Tabel buat Laptop (Kode asli lo)
+                return `
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                    <td class="py-4 px-2">
+                        <p class="text-[11px] font-extrabold text-slate-800 uppercase tracking-tighter">${item.user}</p>
+                        <p class="text-[9px] text-slate-400 font-medium">${item.idTrans} | ${item.tipe} | ${item.rincian}</p>
+                    </td>
+                    <td class="py-4 px-2 text-center">
+                        <span class="px-2 py-0.5 rounded text-[9px] font-black ${item.statusNota === 'CLEAR' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
+                            ${item.statusNota}
+                        </span>
+                    </td>
+                    <td class="py-4 px-2 text-center">
+                        <span class="px-2 py-0.5 rounded text-[9px] font-black ${item.paymentStatus === 'PAID' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
+                            ${item.paymentStatus}
+                        </span>
+                    </td>
+                    <td class="py-4 px-2 text-right space-x-1 whitespace-nowrap">
+                        ${item.statusNota !== 'CLEAR' ? `
+                            <button onclick="triggerUploadReceipt('${item.idTrans}')" class="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                                <i data-lucide="upload-cloud" class="w-3 h-3"></i>
+                            </button>
+                        ` : ''}
+                        ${item.paymentStatus === 'UNPAID' ? `
+                            <button onclick="markAsPaid('${item.idTrans}')" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+                                <i data-lucide="check" class="w-3 h-3"></i>
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>`;
+            }
+        }).join('');
     }
-    
-    // Update Info Halaman & Tombol
+
+    // Update Info Halaman
     const totalPages = Math.ceil(filteredAuditData.length / auditRowsPerPage) || 1;
     document.getElementById('audit-page-info').innerText = `Page ${auditCurrentPage} of ${totalPages}`;
     document.getElementById('prev-audit').disabled = (auditCurrentPage === 1);
