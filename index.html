@@ -13,7 +13,7 @@
     @media (max-width: 768px) {
             .tab-btn span { display: none; } /* Sembunyiin teks di menu bawah biar ringkas */
             .tab-btn i { width: 24px; height: 24px; }
-            .desktop-nav { display: none; }
+            .desktop-nav { display: none !important; }
             .mobile-bottom-nav { 
                 display: flex; 
                 position: fixed; 
@@ -27,6 +27,11 @@
             }
             .audit-table-header { display: none; } /* Sembunyiin header tabel di HP */
         }
+        @media (min-width: 769px) {
+	    .mobile-bottom-nav {
+		display: none !important;
+	    }
+	}
         
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
 	.loading-overlay { 
@@ -126,7 +131,7 @@
         </div>
 
         <div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
-            <nav class="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto scrollbar-hide">
+            <nav class="desktop-nav flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto scrollbar-hide">
                 <button onclick="switchTab('transaksi', this)" class="tab-btn py-4 px-8 text-[11px] font-bold uppercase tracking-wider active-tab flex items-center gap-2">
                     <i data-lucide="plus-circle" class="w-4 h-4"></i> Transaction
                 </button>
@@ -394,9 +399,14 @@
             document.getElementById('bg-tgl').value = today;
             addNotaRow();
             fetchData();
-        };
-
-        // --- CUSTOM UI NOTIFICATIONS ---
+            
+            switchTab('transaksi'); 
+	    const allInitBtns = document.querySelectorAll('[onclick*="switchTab(\'transaksi\'"]');
+	    allInitBtns.forEach(btn => {
+		btn.classList.remove('text-slate-400');
+		btn.classList.add('active-tab');
+	    });
+	    };
         const Toast = Swal.mixin({
             toast: true, position: 'top-end', showConfirmButton: false, 
             timer: 3000, timerProgressBar: true,
@@ -420,9 +430,7 @@
             }
             el.value = split[1] != undefined ? rupiah + "," + split[1] : rupiah;
         }
-
         function cleanNominal(val) { return Number(val.replace(/\./g, "")); }
-
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => {
@@ -438,8 +446,6 @@ function switchTab(tabId, btn) {
     if(tabId === 'audit') loadAuditData();
     lucide.createIcons();
 }
-
-        // --- AUTOCOMPLETE ENGINE ---
         function filterAC(input, listId) {
             const list = document.getElementById(listId);
             const val = input.value.toUpperCase();
@@ -452,13 +458,10 @@ function switchTab(tabId, btn) {
                 list.innerHTML = filtered.map(s => `<div class="ac-item" onclick="selectAC('${input.id}', '${s}', '${listId}')">${s}</div>`).join('');
             } else { list.style.display = 'none'; }
         }
-
         function selectAC(inputId, val, listId) {
             document.getElementById(inputId).value = val;
             document.getElementById(listId).style.display = 'none';
         }
-
-        // --- DATA CORE ---
         async function fetchData() {
             showLoader(true);
             try {
@@ -478,7 +481,6 @@ function switchTab(tabId, btn) {
             }
             showLoader(false);
         }
-
         function renderDashboard() {
             const container = document.getElementById('budgetCards');
             container.innerHTML = MASTER_DATA.budgets.map(b => {
@@ -500,7 +502,6 @@ function switchTab(tabId, btn) {
                 </div>`;
             }).join('');
         }
-
         function renderBudgetDropdown() {
             const select = document.getElementById('tr-budgetRef');
             select.innerHTML = '<option value="">-- SELECT COST CENTER --</option>';
@@ -508,23 +509,17 @@ function switchTab(tabId, btn) {
                 select.add(new Option(`${b.pic} | ${b.kode}`, b.idBudget));
             });
         }
-
         function renderKategoriDropdown() {
             const select = document.getElementById('tr-kategori');
             select.innerHTML = '<option value="">-- SELECT CATEGORY --</option>';
             MASTER_DATA.kategori.forEach(k => select.add(new Option(k, k)));
         }
-
 function addNotaRow() {
     const container = document.getElementById('tr-notaList');
     const isSettleMode = document.getElementById('btnSubmit').hasAttribute('data-settle-id');
     const div = document.createElement('div');
-    
-    // 1. Pastikan ada 'relative' di sini (Udah bener)
     div.className = "relative bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm animate-fadeIn mb-3";
-    
     const katOptions = MASTER_DATA.kategori.map(k => `<option value="${k}">${k}</option>`).join('');
-
     div.innerHTML = `
         <button onclick="this.parentElement.remove(); calculateTotal()" 
                 class="absolute -top-2 -right-2 w-8 h-8 bg-white text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all shadow-md border border-rose-100 z-20">
@@ -561,18 +556,15 @@ function addNotaRow() {
             </div>
         </div>
     `;
-    
     container.appendChild(div);
     lucide.createIcons();
 }
-
         function calculateTotal() {
             let total = 0;
             document.querySelectorAll('.val-nota').forEach(v => total += cleanNominal(v.value || "0"));
             document.getElementById('tr-total').value = total.toLocaleString();
             document.getElementById('tr-total').setAttribute('data-raw', total);
         }
-
         async function saveTransaction() {
             const btn = document.getElementById('btnSubmit');
             const settleId = btn.getAttribute('data-settle-id');
@@ -585,7 +577,6 @@ function addNotaRow() {
             if(!document.getElementById('tr-user').value || !document.getElementById('tr-budgetRef').value || cleanNominal(document.getElementById('tr-total').value) <= 0) {
                 return Swal.fire({ icon: 'warning', title: 'Incomplete Data', text: 'Please fill all mandatory fields.', confirmButtonColor: '#4f46e5' });
             }
-
             showLoader(true);
             for(let i=0; i < descInputs.length; i++) {
                 let itemFileData = null;
@@ -601,7 +592,6 @@ function addNotaRow() {
                     file: itemFileData
                 });
             }
-
             let mainFile = null;
             if (!settleId) {
                 const fInput = document.getElementById('tr-file');
@@ -637,9 +627,7 @@ async function sendData(action, data, file = null) {
             body: JSON.stringify({ action, data, file })
         });
         const resJson = await response.json();
-        
         showLoader(false); 
-
         Swal.fire({ 
             icon: 'success', 
             title: 'Success', 
@@ -656,15 +644,12 @@ async function sendData(action, data, file = null) {
         }); 
     }
 }
-
         const toBase64 = file => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => resolve(reader.result);
             reader.onerror = e => reject(e);
         });
-
-        // --- ENHANCED SETTLEMENT LOGIC (H+14) ---
         async function loadPendingPanjer() {
             const container = document.getElementById('list-panjer');
             container.innerHTML = '<div class="text-center py-20 animate-pulse text-xs font-bold text-slate-400 tracking-widest uppercase">Synchronizing Ledger...</div>';
@@ -675,16 +660,13 @@ async function sendData(action, data, file = null) {
                     container.innerHTML = '<div class="text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-400 text-xs font-bold uppercase tracking-widest">No outstanding panjer found</div>';
                     return;
                 }
-
                 container.innerHTML = data.map(p => {
                     const tglPanjer = new Date(p.tanggal);
                     const tglDeadline = new Date(p.tanggal);
                     tglDeadline.setDate(tglDeadline.getDate() + 14);
-                    
                     const now = new Date();
                     const isOverdue = now > tglDeadline;
                     const diffDays = Math.ceil((tglDeadline - now) / (1000 * 60 * 60 * 24));
-
                     return `
                     <div class="bg-white border ${isOverdue ? 'border-rose-200' : 'border-slate-200'} p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all hover:shadow-md">
                         <div class="space-y-1">
@@ -711,29 +693,23 @@ async function sendData(action, data, file = null) {
                 lucide.createIcons();
             } catch (e) { container.innerHTML = 'System Error'; }
         }
-
         function openSettleModal(idTrans, user, budgetRef) {
             switchTab('transaksi', document.querySelector('[onclick*="transaksi"]'));
             document.getElementById('tr-user').value = user;
             document.getElementById('tr-budgetRef').value = budgetRef;
-            
-            // Hide single mode fields
             document.getElementById('kat-container').classList.add('hidden');
             document.getElementById('tipe-container').classList.add('hidden');
             document.getElementById('file-main-container').classList.add('hidden');
-            
             const btn = document.getElementById('btnSubmit');
             btn.setAttribute('data-settle-id', idTrans);
             btn.innerHTML = `<i data-lucide="check-square" class="w-5 h-5"></i> Confirm Multi-Line Settlement`;
             btn.className = "w-full bg-rose-600 text-white p-5 rounded-2xl font-bold text-sm uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3";
-            
             document.getElementById('form-title').innerText = "Settlement Logic: " + idTrans;
             document.getElementById('tr-notaList').innerHTML = ""; 
             addNotaRow();
             lucide.createIcons();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-
         function resetForm() { 
             Swal.fire({
                 title: 'Clear form?',
@@ -745,7 +721,6 @@ async function sendData(action, data, file = null) {
                 confirmButtonText: 'Yes, clear it'
             }).then((result) => { if (result.isConfirmed) location.reload(); });
         }
-
         async function saveNewBudget() {
             const data = {
                 tanggal: document.getElementById('bg-tgl').value,
@@ -757,7 +732,6 @@ async function sendData(action, data, file = null) {
             if(!data.pic || !data.kodeBudget || !data.nominal) return Swal.fire({ icon: 'warning', title: 'Incomplete Allocation Data' });
             sendData("addBudget", data);
         }
-
         async function generateReport() {
             const kode = document.getElementById('rk-kode').value;
             if(!kode) return Toast.fire({ icon: 'warning', title: 'Code Required' });
@@ -783,10 +757,7 @@ async function sendData(action, data, file = null) {
             } catch (e) { Toast.fire({ icon: 'error', title: 'Analysis Error' }); }
             showLoader(false);
         }
-        
-// Logic untuk menutup semua list autocomplete saat klik di luar
 document.addEventListener('click', function(e) {
-    // Jika yang diklik bukan input autocomplete dan bukan isi list-nya
     if (!e.target.closest('.relative')) {
         const allLists = document.querySelectorAll('.ac-results');
         allLists.forEach(list => {
@@ -795,46 +766,35 @@ document.addEventListener('click', function(e) {
         });
     }
 });
-
-// Tambahan: Tutup kalau tekan tombol Escape (Esc)
 document.addEventListener('keydown', function(e) {
     if (e.key === "Escape") {
         const allLists = document.querySelectorAll('.ac-results');
         allLists.forEach(list => list.classList.add('hidden'));
     }
 });
-
 async function loadAuditData() {
     const tbody = document.getElementById('audit-table-body');
     tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-xs text-slate-400 animate-pulse uppercase tracking-widest">Synchronizing Audit Records...</td></tr>';
-    
     try {
         const res = await fetch(`${GAS_URL}?action=getHistory`);
         const data = await res.json();
-        
-        // Filter awal: Ambil yang bermasalah saja
         auditDataRaw = data.filter(item => 
             item.statusNota === 'MISSING' || 
             item.statusNota === 'PENDING' || 
             item.paymentStatus === 'UNPAID'
         );
-        
         handleAuditSearch();
-        
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-rose-500 font-bold">Failed to load audit data</td></tr>';
     }
 }
-
 function renderAuditTable() {
     const tbody = document.getElementById('audit-table-body');
     const start = (auditCurrentPage - 1) * auditRowsPerPage;
     const end = start + auditRowsPerPage;
     const paginatedItems = filteredAuditData.slice(start, end);
     const head = document.getElementById('audit-table-head');
-    // CEK APAKAH INI MOBILE (Lebar layar dibawah 768px)
     const isMobile = window.innerWidth < 768;
-
     if (paginatedItems.length === 0) {
         tbody.innerHTML = isMobile 
             ? '<div class="text-center py-10 text-slate-400 text-xs font-bold uppercase">No records found</div>'
@@ -843,7 +803,6 @@ function renderAuditTable() {
         tbody.innerHTML = paginatedItems.map(item => {
             if (isMobile) {
             head.className = "hidden";
-    // Tampilan Kartu buat HP - Dibuat Full Width & Padding Pas
     return `
     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 mb-4 mx-1 animate-fadeIn">
         <div class="flex justify-between items-start gap-2">
@@ -876,7 +835,6 @@ function renderAuditTable() {
         </div>
     </div>`;
 } else {
-                // Tampilan Baris Tabel buat Laptop (Kode asli lo)
                 return `
                 <tr class="hover:bg-slate-50/50 transition-colors">
                     <td class="py-4 px-2">
@@ -909,34 +867,25 @@ function renderAuditTable() {
             }
         }).join('');
     }
-
-    // Update Info Halaman
     const totalPages = Math.ceil(filteredAuditData.length / auditRowsPerPage) || 1;
     document.getElementById('audit-page-info').innerText = `Page ${auditCurrentPage} of ${totalPages}`;
     document.getElementById('prev-audit').disabled = (auditCurrentPage === 1);
     document.getElementById('next-audit').disabled = (auditCurrentPage === totalPages);
-    
     lucide.createIcons();
 }
-
-// Fungsi Search
 function handleAuditSearch() {
     const query = document.getElementById('audit-search').value.toLowerCase();
     filteredAuditData = auditDataRaw.filter(item => 
         (item.user && item.user.toLowerCase().includes(query)) || 
         (item.idTrans && item.idTrans.toLowerCase().includes(query))
     );
-    auditCurrentPage = 1; // Reset ke halaman 1 setiap kali cari
+    auditCurrentPage = 1;
     renderAuditTable();
 }
-
-// Fungsi Pindah Halaman
 function changeAuditPage(direction) {
     auditCurrentPage += direction;
     renderAuditTable();
 }
-
-// Trigger upload file (Hidden input)
 async function triggerUploadReceipt(idTrans) {
     const { value: file } = await Swal.fire({
         title: 'Upload Receipt',
@@ -967,7 +916,6 @@ async function triggerUploadReceipt(idTrans) {
         }
     }
 }
-
 async function markAsPaid(idTrans) {
     const result = await Swal.fire({
         title: 'Confirm Payment',
@@ -976,20 +924,15 @@ async function markAsPaid(idTrans) {
         showCancelButton: true,
         confirmButtonColor: '#10b981'
     });
-
     if (result.isConfirmed) {
         showLoader(true);
         try {
 const response = await fetch(GAS_URL, {
     method: "POST",
-    // Mode no-cors ditiadakan karena kita butuh return JSON
     body: JSON.stringify({ action: "togglePayment", idTrans: idTrans, newStatus: "PAID" })
 });
-
 const res = await response.json();
 showLoader(false);
-
-// Cek status dari return fungsi GAS
 if (res.status === "Success") {
     Swal.fire('Updated!', res.message, 'success');
 } else {
