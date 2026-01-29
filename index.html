@@ -70,14 +70,14 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .active-tab { 
-		    border-bottom: 3px solid #4f46e5 !important; 
-		    color: #4f46e5 !important; 
-		    background-color: #f5f3ff; 
-		}
-		.mobile-bottom-nav .active-tab {
-		    border-bottom: none !important;
-		    border-top: 3px solid #4f46e5;
-		}
+	    border-bottom: 3px solid #4f46e5 !important; 
+	    color: #4f46e5 !important; 
+	    background-color: #f5f3ff; 
+	}
+	.mobile-bottom-nav .active-tab {
+	    border-bottom: none !important;
+	    border-top: 3px solid #4f46e5;
+	}
         .ac-results { 
             position: absolute; width: 100%; max-height: 250px; overflow-y: auto; 
             background: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; 
@@ -227,7 +227,7 @@
                     <div id="file-main-container" class="space-y-1">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Document Attachment</label>
                         <div class="relative border-2 border-dashed border-slate-200 rounded-xl p-4 bg-white hover:border-indigo-300 transition-colors">
-                            <input type="file" id="tr-file" accept="application/pdf, image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            <input type="file" id="tr-file" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
                         </div>
                     </div>
 
@@ -380,7 +380,7 @@
 </nav>
 
     <script>
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbyLu842iDmHtQah-C25RI361eQ8MOYmfLWtGGpC1-Za-bJ2AZ2q6AZqf27NlbySVEC-CA/exec";
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxdQaCixQSHfq7WXUByNmbNBJqlkOQCRofud5U3fjOLjhxIM6Xvucv1h9xfJEZdRicjNg/exec";
         let MASTER_DATA = { users: [], budgets: [], kategori: [] };
 	let auditDataRaw = [];
 	let filteredAuditData = [];
@@ -611,7 +611,7 @@ function addNotaRow() {
                     mainFile = { base64: base64.split(',')[1], type: file.type, name: file.name };
                 }
             }
-
+		const allItemsHaveFile = items.every(it => it.file !== null);
             const data = {
                 tanggal: document.getElementById('tr-tgl').value,
                 user: document.getElementById('tr-user').value,
@@ -620,7 +620,9 @@ function addNotaRow() {
                 settleId: settleId || null,
                 items: items,
                 tipe: settleId ? "Settlement" : document.getElementById('tr-tipe').value,
-                statusNota: settleId ? "CLEAR" : (document.getElementById('tr-tipe').value === 'Panjer' ? 'PENDING' : 'CLEAR'),
+                statusNota: settleId 
+        	? (allItemsHaveFile ? "CLEAR" : "MISSING") 
+        	: (document.getElementById('tr-tipe').value === 'Panjer' ? 'PENDING' : 'CLEAR'),
                 kategori: document.getElementById('tr-kategori').value,
                 rincianNota: items.map(it => `${it.rincian}: Rp ${it.nominal.toLocaleString()}`).join(" | ")
             };
@@ -816,7 +818,9 @@ async function loadAuditData() {
             item.statusNota === 'PENDING' || 
             item.paymentStatus === 'UNPAID'
         );
+        
         handleAuditSearch();
+        
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-rose-500 font-bold">Failed to load audit data</td></tr>';
     }
@@ -956,7 +960,7 @@ async function triggerUploadReceipt(idTrans) {
             showLoader(false);
             await Swal.fire('Updated!', res.message, 'success');
             await loadAuditData();
-			handleAuditSearch();
+            handleAuditSearch();
         } catch (e) {
             showLoader(false);
             Swal.fire('Error', 'Failed to upload', 'error');
