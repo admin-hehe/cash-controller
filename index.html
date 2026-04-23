@@ -1436,7 +1436,7 @@ function renderBudgetDropdown() {
   const sel = document.getElementById('tr-budgetRef');
   sel.innerHTML = '<option value="">-- Pilih Budget --</option>';
   MASTER_DATA.budgets.forEach(b => {
-    sel.add(new Option(`${b.pic} | ${b.kode_budget}`, b.id_budget));
+    sel.add(new Option(`${b.pic} | ${b.kode_budget} | ${b.keterangan}`, b.id_budget));
   });
 }
 
