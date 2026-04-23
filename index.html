@@ -2,12 +2,12 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>CASHCTRL — Budget Control System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=Lexend:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 
 <style>
   :root {
@@ -23,7 +23,7 @@
     --radius: 0px;
     --font-display: 'Bebas Neue', sans-serif;
     --font-mono: 'Space Mono', monospace;
-    --font-body: 'DM Sans', sans-serif;
+    --font-body: 'Lexend', sans-serif;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -400,7 +400,7 @@
 
   .nota-row-grid { display: grid; grid-template-columns: 1fr 180px; gap: 12px; }
   .nota-settle-extras { display: none; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-  .nota-settle-extras.show { display: grid; }
+  .nota-settle-extras.show { display: grid; grid-template-columns: 1fr 1fr 1fr; }
 
   .btn-remove-nota {
     position: absolute;
@@ -806,9 +806,77 @@
     font-size: 18px;
     letter-spacing: 1px;
   }
+  /* ===== CHECKBOX MULTI-SELECT ===== */
+  .cb-select {
+    width: 18px; height: 18px;
+    accent-color: var(--black);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .nb-table tr.selected td { background: #f5d000 !important; }
+
+  /* ===== FLOATING SUMMARY BAR ===== */
+  #audit-float-bar {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--black);
+    color: var(--white);
+    border: var(--border);
+    box-shadow: var(--shadow-lg);
+    padding: 14px 24px;
+    z-index: 500;
+    gap: 24px;
+    align-items: center;
+    white-space: nowrap;
+    animation: slideUp 0.2s ease;
+  }
+
+  #audit-float-bar.show { display: flex; }
+
+  @keyframes slideUp {
+    from { opacity:0; transform: translateX(-50%) translateY(16px); }
+    to   { opacity:1; transform: translateX(-50%) translateY(0); }
+  }
+
+  .float-bar-label { font-family: var(--font-mono); font-size: 10px; color: #888; text-transform: uppercase; letter-spacing:0.1em; }
+  .float-bar-value { font-family: var(--font-display); font-size: 24px; color: var(--yellow); letter-spacing:1px; }
+  .float-bar-count { font-family: var(--font-mono); font-size: 11px; color: #aaa; }
+
+  /* ===== VENDOR AUTOCOMPLETE ===== */
+  #ac-vendor-list .ac-item { font-size: 12px; }
+
+  /* ===== TUTUP BUKU TABLE ===== */
+  .budget-status-active { background: var(--green); color: var(--white); }
+  .budget-status-closed { background: #888; color: var(--white); }
+
+  /* ===== INPUT FONT SIZE mobile fix ===== */
+  @media (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+
 </style>
 </head>
 <body>
+
+<!-- ===== FLOATING AUDIT SUMMARY BAR ===== -->
+<div id="audit-float-bar">
+  <div>
+    <div class="float-bar-label">Selected</div>
+    <div class="float-bar-count"><span id="float-count">0</span> transaksi</div>
+  </div>
+  <div>
+    <div class="float-bar-label">Total Nominal</div>
+    <div class="float-bar-value" id="float-total">Rp 0</div>
+  </div>
+  <button class="btn btn-green btn-sm" onclick="markSelectedAsPaid()">✓ PAY SELECTED</button>
+  <button class="btn btn-sm" onclick="clearAuditSelection()" style="background:#444;color:#fff;border-color:#666;">✕ CLEAR</button>
+</div>
 
 <!-- ===== LOADER ===== -->
 <div id="loader">
@@ -884,6 +952,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
         Budget Allocation
       </button>
+      <button class="nav-btn admin-only" onclick="switchTab('tutupbuku',this)" data-tab="tutupbuku">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        Tutup Buku
+      </button>
       <button class="nav-btn admin-only" onclick="switchTab('rekap',this)" data-tab="rekap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Reports
@@ -915,7 +987,10 @@
             </div>
             <div class="form-group ac-wrapper">
               <label>Requester Name</label>
-              <input type="text" id="tr-user" placeholder="Type name..." autocomplete="off" oninput="filterAC(this,'ac-user-list')">
+              <input type="text" id="tr-user" placeholder="Type name..." autocomplete="off" 
+                oninput="filterAC(this,'ac-user-list')"
+                onclick="this.select()"
+                onfocus="this.select()">
               <div id="ac-user-list" class="ac-results"></div>
             </div>
             <div class="form-group" id="kat-container">
@@ -936,6 +1011,11 @@
                 <option value="Reimburse">REIMBURSEMENT</option>
                 <option value="Panjer">DOWN PAYMENT (PANJER)</option>
               </select>
+            </div>
+            <div class="form-group ac-wrapper" id="vendor-container">
+              <label>Vendor / Supplier</label>
+              <input type="text" id="tr-vendor" placeholder="Nama vendor/toko..." autocomplete="off" oninput="filterAC(this,'ac-vendor-list')">
+              <div id="ac-vendor-list" class="ac-results"></div>
             </div>
           </div>
         </div>
@@ -1022,6 +1102,40 @@
             </div>
           </div>
           <button class="btn btn-black btn-lg" onclick="saveNewBudget()">AUTHORIZE ALLOCATION</button>
+        </div>
+      </div>
+
+      <!-- ========================= TUTUP BUKU (ADMIN ONLY) ========================= -->
+      <div id="tab-tutupbuku" class="tab-pane admin-only">
+        <div class="page-header">
+          <div>
+            <div class="page-title">TUTUP BUKU</div>
+            <div class="page-subtitle">Kelola status budget — CLOSED disembunyikan dari card & dropdown</div>
+          </div>
+          <button class="btn btn-sm" onclick="loadTutupBuku()">↺ REFRESH</button>
+        </div>
+        <div class="card">
+          <div class="card-title">STATUS MASTER BUDGET</div>
+          <div class="notice notice-yellow" style="margin-bottom:16px;">
+            Budget <strong>CLOSED</strong> tidak akan muncul di Budget Cards dan dropdown transaksi, tapi tetap tampil di Reports.
+          </div>
+          <div class="table-wrapper" style="overflow-x:auto;">
+            <table class="nb-table">
+              <thead>
+                <tr>
+                  <th>Kode Budget</th>
+                  <th>PIC</th>
+                  <th>Nominal</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="tutupbuku-tbody">
+                <tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1118,6 +1232,7 @@
                   <th>User</th>
                   <th>Budget</th>
                   <th>Rincian</th>
+                  <th>Vendor</th>
                   <th>Nominal</th>
                   <th>Tipe</th>
                   <th>Nota</th>
@@ -1145,6 +1260,7 @@
             <div class="page-subtitle">Manage missing receipts and payment status</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green btn-sm" onclick="markSelectedAsPaid()">✓ PAY SELECTED</button>
             <button class="btn btn-green btn-sm" onclick="markAllAsPaid()">✓ PAY ALL VISIBLE</button>
             <button class="btn btn-sm" onclick="loadAuditData()">↺ REFRESH</button>
           </div>
@@ -1164,6 +1280,7 @@
           <table class="nb-table">
             <thead>
               <tr>
+                <th style="width:40px;"><input type="checkbox" class="cb-select" id="audit-check-all" onchange="toggleAuditAll(this)" title="Select All"></th>
                 <th>Transaction</th>
                 <th>User</th>
                 <th>Nominal</th>
@@ -1198,6 +1315,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Settle
       </button>
+      <button class="mob-nav-btn admin-only" onclick="switchTab('tutupbuku',this)" data-tab="tutupbuku">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        Tutup
+      </button>
       <button class="mob-nav-btn admin-only" onclick="switchTab('rekap',this)" data-tab="rekap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Reports
@@ -1231,7 +1352,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let CURRENT_USER  = null;
 let IS_ADMIN      = false;
-let MASTER_DATA   = { budgets: [], kategori: [], users: [] };
+let MASTER_DATA   = { budgets: [], kategori: [], users: [], vendors: [] };
 
 // Report state
 let reportDataRaw = [];
@@ -1260,23 +1381,93 @@ function showLoader(show) {
 }
 
 // ============================================================
+//  CLIENT-SIDE SESSION CACHE
+//  sessionStorage = fast restore tanpa network round-trip.
+//  onAuthStateChange = source-of-truth untuk expired / logout lintas-tab.
+//  SESSION_TTL_MS = batas usia cache sisi client (default 8 jam).
+// ============================================================
+const SESSION_KEY    = 'cc_sess';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 jam
+
+function saveSessionCache(user) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, ts: Date.now() }));
+  } catch (_) {}
+}
+
+function loadSessionCache() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const { user, ts } = JSON.parse(raw);
+    if (!user || Date.now() - ts > SESSION_TTL_MS) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return user;
+  } catch (_) { return null; }
+}
+
+function clearSessionCache() {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch (_) {}
+}
+
+// ============================================================
 //  AUTH
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
   showLoader(true);
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    await bootApp(session.user);
-  } else {
-    document.getElementById('login-screen').style.display = 'flex';
-  }
-  showLoader(false);
 
-  // Enter key on login
+  // 1. Fast-restore: coba dari sessionStorage dulu (0 network)
+  const cached = loadSessionCache();
+  if (cached) {
+    await bootApp(cached);
+    showLoader(false);
+    // Background verify — jangan blokir UI
+    db.auth.getSession().then(({ data: { session } }) => {
+      if (!session) forceLogout('Sesi telah berakhir. Silakan login kembali.');
+    });
+  } else {
+    // 2. Cold-start: cek Supabase
+    const { data: { session } } = await db.auth.getSession();
+    if (session) {
+      saveSessionCache(session.user);
+      await bootApp(session.user);
+    } else {
+      document.getElementById('login-screen').style.display = 'flex';
+    }
+    showLoader(false);
+  }
+
   document.getElementById('login-password').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
 });
+
+// Sinkronisasi lintas-tab & auto-refresh cache saat token diperbarui
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') {
+    if (CURRENT_USER) forceLogout('Kamu telah logout dari tab lain.');
+  }
+  if (event === 'TOKEN_REFRESHED' && session) {
+    saveSessionCache(session.user); // perbarui TTL
+  }
+  if (event === 'TOKEN_REFRESHED' && !session) {
+    if (CURRENT_USER) forceLogout('Token tidak dapat diperbarui. Silakan login kembali.');
+  }
+});
+
+function forceLogout(msg) {
+  clearSessionCache();
+  CURRENT_USER = null;
+  Swal.fire({
+    icon: 'warning', title: 'Session Berakhir',
+    text: msg, confirmButtonColor: '#0a0a0a',
+    allowOutsideClick: false, allowEscapeKey: false
+  }).then(() => {
+    db.auth.signOut().finally(() => location.reload());
+  });
+}
 
 async function doLogin() {
   const email    = document.getElementById('login-email').value.trim();
@@ -1307,6 +1498,7 @@ async function doLogin() {
     return;
   }
 
+  saveSessionCache(data.user);
   await bootApp(data.user);
 }
 
@@ -1344,6 +1536,7 @@ async function bootApp(user) {
 }
 
 async function doLogout() {
+  clearSessionCache();
   await db.auth.signOut();
   location.reload();
 }
@@ -1357,7 +1550,7 @@ async function fetchMasterData() {
     const [budRes, katRes, trxRes] = await Promise.all([
       db.from('master_budget').select('*'),
       db.from('kategori').select('*'),
-      db.from('transactions').select('user_name')
+      db.from('transactions').select('user_name, vendor')
     ]);
 
     if (budRes.error) throw budRes.error;
@@ -1366,16 +1559,20 @@ async function fetchMasterData() {
     MASTER_DATA.budgets  = budRes.data || [];
     MASTER_DATA.kategori = (katRes.data || []).map(k => k.nama);
     MASTER_DATA.users    = [...new Set((trxRes.data || []).map(t => t.user_name).filter(Boolean))];
+    MASTER_DATA.vendors  = [...new Set((trxRes.data || []).map(t => t.vendor).filter(Boolean))];
 
-    renderBudgetStrip();
-    renderBudgetDropdown();
+    // Active budgets only (for cards & dropdown)
+    const activeBudgets = MASTER_DATA.budgets.filter(b => b.status !== 'CLOSED');
+
+    renderBudgetStrip(activeBudgets);
+    renderBudgetDropdown(activeBudgets);
     renderKategoriDropdown();
 
-    // Also populate report budget filter
+    // Also populate report budget filter (all budgets including CLOSED)
     const repBudgetSel = document.getElementById('rep-budget');
     repBudgetSel.innerHTML = '<option value="">Semua Budget</option>';
     MASTER_DATA.budgets.forEach(b => {
-      repBudgetSel.add(new Option(b.kode_budget, b.id_budget));
+      repBudgetSel.add(new Option(`${b.kode_budget}${b.status==='CLOSED'?' [CLOSED]':''}`, b.id_budget));
     });
 
   } catch (e) {
@@ -1387,8 +1584,9 @@ async function fetchMasterData() {
 // ============================================================
 //  BUDGET STRIP
 // ============================================================
-async function renderBudgetStrip() {
+async function renderBudgetStrip(budgets) {
   const strip = document.getElementById('budget-strip');
+  const activeBudgets = budgets || MASTER_DATA.budgets.filter(b => b.status !== 'CLOSED');
 
   // Get spending per budget
   const { data: trxData } = await db
@@ -1400,12 +1598,12 @@ async function renderBudgetStrip() {
     spending[t.id_budget_ref] = (spending[t.id_budget_ref] || 0) + Number(t.nominal || 0);
   });
 
-  if (!MASTER_DATA.budgets.length) {
+  if (!activeBudgets.length) {
     strip.innerHTML = '<div style="font-family:var(--font-mono);font-size:10px;color:#888;text-transform:uppercase;padding:10px;">No budget allocated</div>';
     return;
   }
 
-  strip.innerHTML = MASTER_DATA.budgets.map(b => {
+  strip.innerHTML = activeBudgets.map(b => {
     const used     = spending[b.id_budget] || 0;
     const limit    = Number(b.nominal_awal || 0);
     const sisa     = limit - used;
@@ -1432,10 +1630,11 @@ async function renderBudgetStrip() {
 // ============================================================
 //  DROPDOWNS
 // ============================================================
-function renderBudgetDropdown() {
+function renderBudgetDropdown(budgets) {
+  const activeBudgets = budgets || MASTER_DATA.budgets.filter(b => b.status !== 'CLOSED');
   const sel = document.getElementById('tr-budgetRef');
   sel.innerHTML = '<option value="">-- Pilih Budget --</option>';
-  MASTER_DATA.budgets.forEach(b => {
+  activeBudgets.forEach(b => {
     sel.add(new Option(`${b.pic} | ${b.kode_budget} | ${b.keterangan}`, b.id_budget));
   });
 }
@@ -1455,9 +1654,10 @@ function filterAC(input, listId) {
   if (!val) { list.style.display = 'none'; return; }
 
   let source = [];
-  if (listId.includes('user'))  source = MASTER_DATA.users;
-  if (listId.includes('pic'))   source = [...new Set(MASTER_DATA.budgets.map(b => b.pic))];
-  if (listId.includes('kode'))  source = MASTER_DATA.budgets.map(b => b.kode_budget);
+  if (listId.includes('user'))   source = MASTER_DATA.users;
+  if (listId.includes('pic'))    source = [...new Set(MASTER_DATA.budgets.map(b => b.pic))];
+  if (listId.includes('kode'))   source = MASTER_DATA.budgets.map(b => b.kode_budget);
+  if (listId.includes('vendor')) source = MASTER_DATA.vendors;
 
   const filtered = source.filter(s => s.toUpperCase().includes(val));
 
@@ -1477,10 +1677,29 @@ function selectAC(inputId, val, listId) {
 }
 
 document.addEventListener('click', e => {
-  if (!e.target.closest('.ac-wrapper')) {
+  if (!e.target.closest('.ac-wrapper') && !e.target.closest('.item-vendor')) {
     document.querySelectorAll('.ac-results').forEach(el => el.style.display = 'none');
   }
 });
+
+// Autocomplete vendor per line-item (settlement mode)
+function filterLineVendorAC(input) {
+  const dropdown = input.nextElementSibling; // .line-vendor-ac
+  const val = input.value.toUpperCase().trim();
+  if (!val) { dropdown.style.display = 'none'; return; }
+
+  const filtered = MASTER_DATA.vendors.filter(s => s.toUpperCase().includes(val));
+  if (filtered.length) {
+    dropdown.style.display = 'block';
+    dropdown.innerHTML = filtered.map(s =>
+      `<div class="ac-item" onmousedown="event.preventDefault();
+        this.closest('div[style]').querySelector('.item-vendor').value='${s.replace(/'/g, "\\'")}';
+        this.closest('.ac-results').style.display='none';">${s}</div>`
+    ).join('');
+  } else {
+    dropdown.style.display = 'none';
+  }
+}
 
 // ============================================================
 //  TAB SWITCHING
@@ -1500,6 +1719,7 @@ function switchTab(tabId, btn) {
   if (tabId === 'settlement') loadPendingPanjer();
   if (tabId === 'audit')      loadAuditData();
   if (tabId === 'rekap')      loadReportData();
+  if (tabId === 'tutupbuku')  loadTutupBuku();
 }
 
 // ============================================================
@@ -1550,8 +1770,16 @@ function addNotaRow() {
       <div class="form-group" style="margin:0;">
         <label>Line Category</label>
         <select class="item-kategori" style="width:100%;padding:10px 12px;border:var(--border);font-family:var(--font-body);font-size:13px;outline:none;appearance:none;">
+          <option value="">-- Pilih Kategori --</option>
           ${katOptions}
         </select>
+      </div>
+      <div class="form-group" style="margin:0;position:relative;">
+        <label>Vendor / Supplier</label>
+        <input type="text" placeholder="Nama vendor..." class="item-vendor"
+               autocomplete="off" oninput="filterLineVendorAC(this)"
+               style="width:100%;padding:10px 12px;border:var(--border);font-family:var(--font-body);font-size:13px;outline:none;">
+        <div class="ac-results line-vendor-ac"></div>
       </div>
       <div class="form-group" style="margin:0;">
         <label>Receipt File</label>
@@ -1629,10 +1857,32 @@ async function saveTransaction() {
   const budgetId = document.getElementById('tr-budgetRef').value;
   const tgl      = document.getElementById('tr-tgl').value;
   const total    = Number(document.getElementById('tr-total').dataset.raw || 0);
+  const vendor   = document.getElementById('tr-vendor').value.trim();
 
   if (!user || !budgetId || total <= 0) {
     Swal.fire({ icon: 'warning', title: 'Data Tidak Lengkap', text: 'Isi requester, budget, dan minimal 1 item.' });
     return;
+  }
+
+  // Validasi category — normal mode wajib pilih kategori global
+  if (!settleId) {
+    const kategoriVal = document.getElementById('tr-kategori').value;
+    if (!kategoriVal) {
+      Swal.fire({ icon: 'warning', title: 'Kategori Belum Dipilih', text: 'Pilih kategori transaksi sebelum submit.' });
+      document.getElementById('tr-kategori').focus();
+      return;
+    }
+  }
+
+  // Validasi category — settlement mode wajib semua baris punya kategori
+  if (settleId) {
+    const katInputs = document.querySelectorAll('.item-kategori');
+    const emptyKat  = [...katInputs].findIndex(el => !el.value);
+    if (emptyKat !== -1) {
+      Swal.fire({ icon: 'warning', title: 'Kategori Baris Belum Diisi', text: `Baris #${emptyKat + 1} belum memiliki kategori.` });
+      katInputs[emptyKat].focus();
+      return;
+    }
   }
 
   showLoader(true);
@@ -1642,10 +1892,11 @@ async function saveTransaction() {
     const kategori = document.getElementById('tr-kategori').value;
     const tipe     = settleId ? 'Settlement' : document.getElementById('tr-tipe').value;
 
-    const descInputs = document.querySelectorAll('.desc-nota');
-    const valInputs  = document.querySelectorAll('.val-nota');
-    const katInputs  = document.querySelectorAll('.item-kategori');
-    const fileInputs = document.querySelectorAll('.item-file');
+    const descInputs   = document.querySelectorAll('.desc-nota');
+    const valInputs    = document.querySelectorAll('.val-nota');
+    const katInputs    = document.querySelectorAll('.item-kategori');
+    const fileInputs   = document.querySelectorAll('.item-file');
+    const vendorInputs = document.querySelectorAll('.item-vendor');
 
     const items = [];
     for (let i = 0; i < descInputs.length; i++) {
@@ -1660,10 +1911,11 @@ async function saveTransaction() {
         );
       }
       items.push({
-        rincian:   descInputs[i].value,
-        nominal:   cleanNominal(valInputs[i]?.value || '0'),
-        kategori:  settleId ? (katInputs[i]?.value || '') : kategori,
-        fileUrl:   itemFileUrl
+        rincian:  descInputs[i].value,
+        nominal:  cleanNominal(valInputs[i]?.value || '0'),
+        kategori: settleId ? (katInputs[i]?.value || '') : kategori,
+        fileUrl:  itemFileUrl,
+        vendor:   settleId ? (vendorInputs[i]?.value.trim() || null) : (vendor || null)
       });
     }
 
@@ -1683,25 +1935,78 @@ async function saveTransaction() {
     }
 
     if (settleId) {
+      // Get original panjer amount from data attribute (set in openSettleModal)
+      const panjerNominal = Number(btn.getAttribute('data-panjer-nominal') || 0);
+
       // SETTLEMENT MODE: nol-kan panjer, insert settlement rows
       await db.from('transactions').update({ nominal: 0, status_nota: 'CLEAR' }).eq('id_trans', settleId);
 
       const rows = items.map((item, i) => ({
-        id_trans:     'REAL-' + Date.now() + '-' + i,
+        id_trans:      'REAL-' + Date.now() + '-' + i,
         id_budget_ref: budgetId,
-        user_name:    user,
-        nominal:      item.nominal,
-        tipe:         'Settlement',
-        status_nota:  item.fileUrl ? 'CLEAR' : 'MISSING',
-        link_nota:    item.fileUrl || null,
-        rincian_nota: `[Settle ${settleId}] ${item.rincian}`,
-        parent_id:    settleId,
-        kategori:     item.kategori,
+        user_name:     user,
+        nominal:       item.nominal,
+        tipe:          'Settlement',
+        status_nota:   item.fileUrl ? 'CLEAR' : 'MISSING',
+        link_nota:     item.fileUrl || null,
+        rincian_nota:  `[Settle ${settleId}] ${item.rincian}`,
+        parent_id:     settleId,
+        kategori:      item.kategori,
+        vendor:        item.vendor,
         payment_status: 'UNPAID'
       }));
 
       const { error } = await db.from('transactions').insert(rows);
       if (error) throw error;
+
+      // Auto-logic: selisih panjer vs total nota
+      const diff = total - panjerNominal;
+      if (panjerNominal > 0 && diff !== 0) {
+        let autoKategori, autoTipe, autoRincian;
+        if (diff < 0) {
+          autoKategori = 'Pengembalian ke Admin';
+          autoTipe     = 'Pengembalian';
+          autoRincian  = `[Auto] Sisa pengembalian dari ${settleId}`;
+        } else {
+          autoKategori = 'Hutang User';
+          autoTipe     = 'Hutang';
+          autoRincian  = `[Auto] Kelebihan nota dari ${settleId}`;
+        }
+        const { error: autoErr } = await db.from('transactions').insert({
+          id_trans:     'ADJ-' + Date.now(),
+          id_budget_ref: budgetId,
+          user_name:    user,
+          nominal:      Math.abs(diff),
+          tipe:         autoTipe,
+          status_nota:  'CLEAR',
+          link_nota:    null,
+          rincian_nota: autoRincian,
+          parent_id:    settleId,
+          kategori:     autoKategori,
+          vendor:       null,
+          payment_status: diff < 0 ? 'PAID' : 'UNPAID'
+        });
+        if (autoErr) throw autoErr;
+
+        // ⚠ Matikan loader dulu sebelum Swal — loader overlay menghalangi dialog
+        showLoader(false);
+
+        const icon  = diff < 0 ? 'info' : 'warning';
+        const title = diff < 0 ? '💸 Kembalikan ke Admin' : '⚠ Hutang User';
+        const msg   = diff < 0
+          ? `Total nota (${fmtRp(total)}) lebih kecil dari panjer (${fmtRp(panjerNominal)}).\nSelisih ${fmtRp(Math.abs(diff))} dicatat sebagai Pengembalian ke Admin.`
+          : `Total nota (${fmtRp(total)}) melebihi panjer (${fmtRp(panjerNominal)}).\nSelisih ${fmtRp(Math.abs(diff))} dicatat sebagai Hutang User.`;
+
+        await Swal.fire({
+          icon, title,
+          text: msg,
+          confirmButtonColor: '#0a0a0a',
+          confirmButtonText: 'Mengerti',
+          allowOutsideClick: false
+        });
+      } else {
+        showLoader(false);
+      }
 
     } else {
       // NORMAL MODE: single transaction
@@ -1722,12 +2027,13 @@ async function saveTransaction() {
         rincian_nota: rincianText,
         parent_id:    null,
         kategori:     kategori || null,
+        vendor:       vendor || null,
         payment_status: 'UNPAID'
       });
       if (error) throw error;
+      showLoader(false);
     }
 
-    showLoader(false);
     await Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Transaksi tersimpan.', confirmButtonColor: '#0a0a0a' });
     resetForm(true);
     await fetchMasterData();
@@ -1754,11 +2060,13 @@ async function resetForm(force = false) {
     document.getElementById('tr-budgetRef').value = '';
     document.getElementById('tr-kategori').value = '';
     document.getElementById('tr-tipe').value = 'Reimburse';
+    document.getElementById('tr-vendor').value = '';
     document.getElementById('tr-file').value = '';
     onFileSelect(document.getElementById('tr-file'));
     document.getElementById('kat-container').style.display = '';
     document.getElementById('tipe-container').style.display = '';
     document.getElementById('file-main-container').style.display = '';
+    document.getElementById('vendor-container').style.display = '';
     addNotaRow();
   };
 
@@ -1874,18 +2182,34 @@ function openSettleModal(idTrans, user, budgetRef) {
   document.getElementById('kat-container').style.display = 'none';
   document.getElementById('tipe-container').style.display = 'none';
   document.getElementById('file-main-container').style.display = 'none';
+  document.getElementById('vendor-container').style.display = 'none';
   document.getElementById('tr-notaList').innerHTML = '';
   addNotaRow();
 
   const btn = document.getElementById('btnSubmit');
   btn.setAttribute('data-settle-id', idTrans);
+
+  // Store original panjer nominal for auto-logic calculation
+  const panjerItem = auditDataRaw.find(t => t.id_trans === idTrans);
+  const panjerNom  = panjerItem?.nominal || 0;
+  btn.setAttribute('data-panjer-nominal', panjerNom);
+
   btn.textContent = '✓ CONFIRM MULTI-LINE SETTLEMENT';
   btn.className = 'btn btn-red btn-lg';
 
   document.getElementById('form-page-title').textContent = 'SETTLEMENT: ' + idTrans;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Show settle extras on existing rows
+  // Show panjer info banner
+  const existingBanner = document.getElementById('settle-panjer-banner');
+  if (existingBanner) existingBanner.remove();
+  const banner = document.createElement('div');
+  banner.id = 'settle-panjer-banner';
+  banner.className = 'notice notice-yellow';
+  banner.style.marginBottom = '16px';
+  banner.innerHTML = `Reconciling panjer <strong>${idTrans}</strong> — Panjer amount: <strong style="font-family:var(--font-mono)">${fmtRp(panjerNom)}</strong>. Selisih akan di-auto-adjust.`;
+  document.getElementById('tr-notaList').before(banner);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   document.querySelectorAll('.nota-settle-extras').forEach(el => el.classList.add('show'));
 }
 
@@ -1895,7 +2219,7 @@ function openSettleModal(idTrans, user, budgetRef) {
 async function loadAuditData() {
   if (!IS_ADMIN) return;
   const tbody = document.getElementById('audit-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;">Loading...</td></tr>';
 
   const { data, error } = await db
     .from('transactions')
@@ -1935,7 +2259,10 @@ function renderAuditTable() {
   document.getElementById('next-audit').disabled = auditCurrentPage === total;
 
   if (!page.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">NO RECORDS FOUND</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">NO RECORDS FOUND</td></tr>';
+    // Reset float bar & select-all
+    document.getElementById('audit-check-all').checked = false;
+    updateAuditFloat();
     return;
   }
 
@@ -1958,13 +2285,24 @@ function renderAuditTable() {
       ? `<button class="btn btn-green btn-sm btn-icon" title="Mark Paid" onclick="markAsPaid('${item.id_trans}')">✓</button>`
       : '';
 
+    // Only UNPAID rows are selectable for bulk pay
+    const canSelect = item.payment_status === 'UNPAID';
+
     return `
-    <tr>
+    <tr data-id="${item.id_trans}" data-nominal="${item.nominal}" data-unpaid="${canSelect}">
+      <td style="text-align:center;">
+        ${canSelect
+          ? `<input type="checkbox" class="cb-select audit-row-cb" data-id="${item.id_trans}" data-nominal="${item.nominal}" onchange="updateAuditFloat()">`
+          : '<span style="color:#ccc;font-size:14px;">—</span>'}
+      </td>
       <td>
         <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;">${item.id_trans}</div>
         <div style="font-size:11px;color:#888;">${fmtDate(item.timestamp)}</div>
       </td>
-      <td style="font-weight:700;">${item.user_name || '—'}</td>
+      <td>
+        <div style="font-weight:700;">${item.user_name || '—'}</div>
+        <div style="font-size:11px;color:#888;">${item.rincian_nota || '—'}</div>
+      </td>
       <td style="font-family:var(--font-mono);font-weight:700;">${fmtRp(item.nominal)}</td>
       <td>${notaBadge}</td>
       <td>${payBadge}</td>
@@ -1973,12 +2311,94 @@ function renderAuditTable() {
       </td>
     </tr>`;
   }).join('');
+
+  // Reset select-all state on page change
+  document.getElementById('audit-check-all').checked = false;
+  updateAuditFloat();
 }
 
 function changeAuditPage(dir) {
   const total = Math.ceil(auditFiltered.length / auditRowsPerPage) || 1;
   auditCurrentPage = Math.max(1, Math.min(total, auditCurrentPage + dir));
   renderAuditTable();
+}
+
+// ---- CHECKBOX / MULTI-SELECT (Audit) ----
+function toggleAuditAll(masterCb) {
+  const cbs = document.querySelectorAll('.audit-row-cb');
+  cbs.forEach(cb => {
+    cb.checked = masterCb.checked;
+    // highlight row
+    cb.closest('tr').classList.toggle('selected', masterCb.checked);
+  });
+  updateAuditFloat();
+}
+
+function updateAuditFloat() {
+  const cbs = document.querySelectorAll('.audit-row-cb:checked');
+  const count = cbs.length;
+  let totalNom = 0;
+  cbs.forEach(cb => { totalNom += Number(cb.dataset.nominal || 0); });
+
+  const bar = document.getElementById('audit-float-bar');
+  if (count > 0) {
+    bar.classList.add('show');
+    document.getElementById('float-count').textContent = count;
+    document.getElementById('float-total').textContent = fmtRp(totalNom);
+  } else {
+    bar.classList.remove('show');
+  }
+
+  // Highlight rows
+  document.querySelectorAll('.audit-row-cb').forEach(cb => {
+    cb.closest('tr').classList.toggle('selected', cb.checked);
+  });
+
+  // Sync select-all checkbox state
+  const allCbs = document.querySelectorAll('.audit-row-cb');
+  const masterCb = document.getElementById('audit-check-all');
+  if (allCbs.length > 0) {
+    masterCb.checked = count === allCbs.length;
+    masterCb.indeterminate = count > 0 && count < allCbs.length;
+  }
+}
+
+function clearAuditSelection() {
+  document.querySelectorAll('.audit-row-cb').forEach(cb => { cb.checked = false; });
+  document.getElementById('audit-check-all').checked = false;
+  document.getElementById('audit-check-all').indeterminate = false;
+  document.querySelectorAll('#audit-tbody tr').forEach(tr => tr.classList.remove('selected'));
+  document.getElementById('audit-float-bar').classList.remove('show');
+}
+
+async function markSelectedAsPaid() {
+  const cbs = document.querySelectorAll('.audit-row-cb:checked');
+  if (!cbs.length) {
+    Toast.fire({ icon: 'info', title: 'Tidak ada baris yang dipilih' });
+    return;
+  }
+
+  const ids = [...cbs].map(cb => cb.dataset.id);
+  const totalNom = [...cbs].reduce((s, cb) => s + Number(cb.dataset.nominal || 0), 0);
+
+  const res = await Swal.fire({
+    title: 'Confirm Bulk Payment',
+    html: `Tandai <strong>${ids.length}</strong> transaksi sebagai PAID?<br>
+           <span style="font-family:var(--font-mono);font-size:13px;">Total: ${fmtRp(totalNom)}</span>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonColor: '#1db954', cancelButtonColor: '#888',
+    confirmButtonText: 'Ya, Bayar!'
+  });
+  if (!res.isConfirmed) return;
+
+  showLoader(true);
+  const { error } = await db.from('transactions').update({ payment_status: 'PAID' }).in('id_trans', ids);
+  showLoader(false);
+
+  if (error) { Swal.fire({ icon: 'error', title: error.message }); return; }
+  await Swal.fire({ icon: 'success', title: `${ids.length} transaksi berhasil di-PAID!`, confirmButtonColor: '#0a0a0a' });
+  clearAuditSelection();
+  loadAuditData();
 }
 
 async function triggerUploadReceipt(idTrans) {
@@ -2086,7 +2506,7 @@ function filterReport() {
   const toD     = document.getElementById('rep-to').value;
 
   reportFiltered = reportDataRaw.filter(item => {
-    const matchQ   = !q || (item.id_trans||'').toLowerCase().includes(q) || (item.user_name||'').toLowerCase().includes(q) || (item.rincian_nota||'').toLowerCase().includes(q);
+    const matchQ   = !q || (item.id_trans||'').toLowerCase().includes(q) || (item.user_name||'').toLowerCase().includes(q) || (item.rincian_nota||'').toLowerCase().includes(q) || (item.vendor||'').toLowerCase().includes(q);
     const matchBud = !budgetF || item.id_budget_ref === budgetF;
     const matchNot = !notaF || item.status_nota === notaF;
     const matchPay = !payF || item.payment_status === payF;
@@ -2111,7 +2531,7 @@ function renderReportTable() {
   document.getElementById('rep-next').disabled = repCurrentPage === total;
 
   if (!page.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">NO RECORDS</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">NO RECORDS</td></tr>';
     return;
   }
 
@@ -2139,7 +2559,8 @@ function renderReportTable() {
         <div style="font-family:var(--font-mono);font-size:10px;font-weight:700;">${item.master_budget?.kode_budget || '—'}</div>
         <div style="font-size:10px;color:#888;">${item.master_budget?.pic || ''}</div>
       </td>
-      <td style="max-width:200px;font-size:12px;color:#555;">${item.rincian_nota || '—'}</td>
+      <td style="max-width:180px;font-size:12px;color:#555;">${item.rincian_nota || '—'}</td>
+      <td style="font-size:12px;color:#555;">${item.vendor || '<span style="color:#ccc;">—</span>'}</td>
       <td style="font-family:var(--font-mono);font-weight:700;white-space:nowrap;">${fmtRp(item.nominal)}</td>
       <td><span class="badge badge-gray" style="font-size:9px;">${item.tipe || '—'}</span></td>
       <td>${notaBadge} ${notaLink}</td>
@@ -2280,13 +2701,14 @@ function exportCSV() {
     return;
   }
 
-  const headers = ['ID Trans','Timestamp','Budget Ref','Kode Budget','User','Nominal','Tipe','Status Nota','Payment','Kategori','Rincian'];
+  const headers = ['ID Trans','Timestamp','Budget Ref','Kode Budget','User','Vendor','Nominal','Tipe','Status Nota','Payment','Kategori','Rincian'];
   const rows = reportFiltered.map(r => [
     r.id_trans,
     r.timestamp,
     r.id_budget_ref,
     r.master_budget?.kode_budget || '',
     r.user_name,
+    r.vendor || '',
     r.nominal,
     r.tipe,
     r.status_nota,
@@ -2303,6 +2725,85 @@ function exportCSV() {
   a.download = `cashctrl_export_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  TUTUP BUKU (ADMIN ONLY)
+// ============================================================
+async function loadTutupBuku() {
+  if (!IS_ADMIN) return;
+  const tbody = document.getElementById('tutupbuku-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;">Loading...</td></tr>';
+
+  const { data, error } = await db.from('master_budget').select('*').order('tanggal_approve', { ascending: false });
+  if (error) { Toast.fire({ icon: 'error', title: error.message }); return; }
+
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--font-mono);font-size:11px;color:#aaa;">Tidak ada budget</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(b => {
+    const isClosed = b.status === 'CLOSED';
+    const statusBadge = isClosed
+      ? `<span class="badge budget-status-closed">CLOSED</span>`
+      : `<span class="badge budget-status-active">ACTIVE</span>`;
+
+    return `
+    <tr>
+      <td style="font-family:var(--font-mono);font-weight:700;">${b.kode_budget}</td>
+      <td>${b.pic}</td>
+      <td style="font-family:var(--font-mono);">${fmtRp(b.nominal_awal)}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <input type="text" id="remarks-${b.id_budget}" value="${b.remarks || ''}"
+          placeholder="Catatan penutupan..."
+          style="width:100%;padding:8px 10px;border:var(--border);font-family:var(--font-body);font-size:12px;outline:none;background:${isClosed?'#f0ead8':'var(--white)'};">
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${isClosed
+            ? `<button class="btn btn-green btn-sm" onclick="updateBudgetStatus('${b.id_budget}','ACTIVE')">↺ RE-OPEN</button>`
+            : `<button class="btn btn-red btn-sm" onclick="updateBudgetStatus('${b.id_budget}','CLOSED')">✕ TUTUP</button>`
+          }
+          <button class="btn btn-sm" onclick="saveBudgetRemarks('${b.id_budget}')">💾 SAVE</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateBudgetStatus(budgetId, newStatus) {
+  const action = newStatus === 'CLOSED' ? 'menutup' : 'membuka kembali';
+  const res = await Swal.fire({
+    title: newStatus === 'CLOSED' ? 'Tutup Buku?' : 'Re-Open Budget?',
+    text: `Yakin ingin ${action} budget ini? Budget CLOSED tidak akan muncul di card dan dropdown transaksi.`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonColor: newStatus === 'CLOSED' ? '#e83535' : '#1db954',
+    confirmButtonText: newStatus === 'CLOSED' ? 'Ya, Tutup!' : 'Ya, Re-Open!'
+  });
+  if (!res.isConfirmed) return;
+
+  const remarks = document.getElementById(`remarks-${budgetId}`)?.value || '';
+  showLoader(true);
+  const { error } = await db.from('master_budget')
+    .update({ status: newStatus, remarks: remarks || null })
+    .eq('id_budget', budgetId);
+  showLoader(false);
+
+  if (error) { Swal.fire({ icon: 'error', title: error.message }); return; }
+  Toast.fire({ icon: 'success', title: `Budget berhasil di-${newStatus}` });
+  await loadTutupBuku();
+  await fetchMasterData();
+}
+
+async function saveBudgetRemarks(budgetId) {
+  const remarks = document.getElementById(`remarks-${budgetId}`)?.value || '';
+  showLoader(true);
+  const { error } = await db.from('master_budget').update({ remarks: remarks || null }).eq('id_budget', budgetId);
+  showLoader(false);
+  if (error) { Toast.fire({ icon: 'error', title: error.message }); return; }
+  Toast.fire({ icon: 'success', title: 'Remarks tersimpan!' });
 }
 </script>
 </body>
