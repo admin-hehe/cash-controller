@@ -925,8 +925,8 @@
     </div>
   </header>
 
-  <!-- Budget Strip -->
-  <div id="budget-strip">
+  <!-- Budget Strip — Admin Only -->
+  <div id="budget-strip" class="admin-only">
     <div class="budget-card" style="min-width:200px;background:#222;color:#888;border-color:#444;">
       <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;">Loading budgets...</div>
     </div>
@@ -1831,14 +1831,17 @@ const toBase64 = file => new Promise((res, rej) => {
 //  UPLOAD FILE TO SUPABASE STORAGE
 // ============================================================
 async function uploadNota(file, budgetKode, userName, kategori, rincian) {
-  const ext       = file.name.split('.').pop();
+  const ext       = file.name.split('.').pop().toLowerCase();
   const cleanDet  = (rincian || 'nota').replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
   const dateStr   = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
   const katClean  = (kategori || 'umum').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  const path      = `${budgetKode}/${katClean}/${userName}_${cleanDet}_${dateStr}.${ext}`;
+  // Random 6-char suffix mencegah collision ketika beberapa file diupload dalam waktu bersamaan
+  const rndSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const cleanUser = (userName || 'user').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+  const path      = `${budgetKode}/${katClean}/${cleanUser}_${cleanDet}_${dateStr}_${rndSuffix}.${ext}`;
 
   const { data, error } = await db.storage.from(BUCKET_NAME).upload(path, file, {
-    cacheControl: '3600', upsert: false
+    cacheControl: '3600', upsert: true
   });
   if (error) throw error;
 
@@ -1941,8 +1944,9 @@ async function saveTransaction() {
       // SETTLEMENT MODE: nol-kan panjer, insert settlement rows
       await db.from('transactions').update({ nominal: 0, status_nota: 'CLEAR' }).eq('id_trans', settleId);
 
+      const tsBase = Date.now();
       const rows = items.map((item, i) => ({
-        id_trans:      'REAL-' + Date.now() + '-' + i,
+        id_trans:      'REAL-' + (tsBase + i),
         id_budget_ref: budgetId,
         user_name:     user,
         nominal:       item.nominal,
@@ -1973,7 +1977,7 @@ async function saveTransaction() {
           autoRincian  = `[Auto] Kelebihan nota dari ${settleId}`;
         }
         const { error: autoErr } = await db.from('transactions').insert({
-          id_trans:     'ADJ-' + Date.now(),
+          id_trans:     'ADJ-' + (tsBase + items.length),
           id_budget_ref: budgetId,
           user_name:    user,
           nominal:      Math.abs(diff),
@@ -2168,14 +2172,14 @@ async function loadPendingPanjer() {
         ${p.rincian_nota ? `<div style="font-size:12px;color:#666;margin-top:4px;">${p.rincian_nota}</div>` : ''}
       </div>
       <button class="btn btn-black"
-        onclick="openSettleModal('${p.id_trans}','${p.user_name}','${p.id_budget_ref}')">
+        onclick="openSettleModal('${p.id_trans}','${p.user_name}','${p.id_budget_ref}',${p.nominal})">
         RECONCILE →
       </button>
     </div>`;
   }).join('');
 }
 
-function openSettleModal(idTrans, user, budgetRef) {
+function openSettleModal(idTrans, user, budgetRef, panjerNominal) {
   switchTab('transaksi', document.querySelector('[data-tab="transaksi"]'));
   document.getElementById('tr-user').value = user;
   document.getElementById('tr-budgetRef').value = budgetRef;
@@ -2189,9 +2193,8 @@ function openSettleModal(idTrans, user, budgetRef) {
   const btn = document.getElementById('btnSubmit');
   btn.setAttribute('data-settle-id', idTrans);
 
-  // Store original panjer nominal for auto-logic calculation
-  const panjerItem = auditDataRaw.find(t => t.id_trans === idTrans);
-  const panjerNom  = panjerItem?.nominal || 0;
+  // Gunakan nominal yang dipass langsung — tidak bergantung auditDataRaw
+  const panjerNom = Number(panjerNominal || 0);
   btn.setAttribute('data-panjer-nominal', panjerNom);
 
   btn.textContent = '✓ CONFIRM MULTI-LINE SETTLEMENT';
