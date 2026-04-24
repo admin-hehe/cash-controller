@@ -1588,10 +1588,11 @@ async function renderBudgetStrip(budgets) {
   const strip = document.getElementById('budget-strip');
   const activeBudgets = budgets || MASTER_DATA.budgets.filter(b => b.status !== 'CLOSED');
 
-  // Get spending per budget
+  // Get spending per budget — exclude Pengembalian & Hutang (hanya pengingat, bukan pengeluaran nyata)
   const { data: trxData } = await db
     .from('transactions')
-    .select('id_budget_ref, nominal');
+    .select('id_budget_ref, nominal, tipe')
+    .not('tipe', 'in', '("Pengembalian","Hutang")');
 
   const spending = {};
   (trxData || []).forEach(t => {
