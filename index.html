@@ -1740,7 +1740,7 @@ function filterLineVendorAC(input) {
     dropdown.style.display = 'block';
     dropdown.innerHTML = filtered.map(s =>
       `<div class="ac-item" onmousedown="event.preventDefault();
-        this.closest('div[style]').querySelector('.item-vendor').value='${s.replace(/'/g, "\\'")}';
+        this.closest('.form-group').querySelector('.item-vendor').value='${s.replace(/'/g, "\\'")}';
         this.closest('.ac-results').style.display='none';">${s}</div>`
     ).join('');
   } else {
@@ -2129,7 +2129,7 @@ async function saveTransaction() {
           parent_id:    settleId,
           kategori:     autoKategori,
           vendor:       null,
-          payment_status: diff < 0 ? 'PAID' : 'UNPAID'
+          payment_status: 'UNPAID'
         });
         if (autoErr) throw autoErr;
 
