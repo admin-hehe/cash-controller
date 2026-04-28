@@ -860,6 +860,44 @@
     }
   }
 
+  /* ===== SALDO MINUS — BUDGET CARD ===== */
+  .budget-card.minus {
+    border-color: var(--red);
+    box-shadow: 5px 5px 0 var(--red);
+  }
+  .budget-card.minus .budget-card-sisa {
+    color: var(--red);
+  }
+  .budget-card-minus-badge {
+    display: inline-block;
+    background: var(--red);
+    color: var(--white);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 2px solid var(--black);
+    margin-bottom: 6px;
+  }
+
+  /* ===== SALDO INDICATOR — FORM ===== */
+  #saldo-indicator {
+    display: none;
+    margin-top: 8px;
+    padding: 10px 14px;
+    border: var(--border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  #saldo-indicator.ok     { background: #e8f5e9; color: #1b5e20; }
+  #saldo-indicator.warn   { background: var(--yellow); color: var(--black); }
+  #saldo-indicator.danger { background: var(--red); color: var(--white); }
+
 </style>
 </head>
 <body>
@@ -1001,9 +1039,10 @@
             </div>
             <div class="form-group">
               <label>Cost Center / Budget</label>
-              <select id="tr-budgetRef">
+              <select id="tr-budgetRef" onchange="updateSaldoIndicator()">
                 <option value="">-- Pilih Budget --</option>
               </select>
+              <div id="saldo-indicator"></div>
             </div>
             <div class="form-group" id="tipe-container">
               <label>Transaction Type</label>
@@ -1608,22 +1647,29 @@ async function renderBudgetStrip(budgets) {
     const used     = spending[b.id_budget] || 0;
     const limit    = Number(b.nominal_awal || 0);
     const sisa     = limit - used;
+    const isMinus  = sisa < 0;
     const pct      = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
-    const fillCls  = pct > 95 ? 'danger' : pct > 80 ? 'warn' : '';
+    const fillCls  = isMinus ? 'danger' : pct > 95 ? 'danger' : pct > 80 ? 'warn' : '';
+    const sisaFmt  = isMinus
+      ? `<span style="color:var(--red);">- Rp ${Math.abs(sisa).toLocaleString('id-ID')}</span>`
+      : `Rp ${sisa.toLocaleString('id-ID')}`;
 
     return `
-    <div class="budget-card">
+    <div class="budget-card ${isMinus ? 'minus' : ''}">
       <div class="budget-card-kode">${b.kode_budget}</div>
+      ${isMinus ? `<div class="budget-card-minus-badge">⚠ SALDO MINUS</div>` : ''}
       <div class="budget-card-pic">${b.pic}</div>
       ${b.keterangan ? `<div style="font-family:var(--font-mono);font-size:9px;color:#999;margin-bottom:6px;line-height:1.4;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${b.keterangan}">${b.keterangan}</div>` : ''}
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
-        <div class="budget-card-sisa">Rp ${sisa.toLocaleString('id-ID')}</div>
+        <div class="budget-card-sisa">${sisaFmt}</div>
         <div style="font-family:var(--font-mono);font-size:9px;color:#aaa;">/ ${limit.toLocaleString('id-ID')}</div>
       </div>
       <div class="budget-bar-track">
         <div class="budget-bar-fill ${fillCls}" style="width:${pct}%"></div>
       </div>
-      <div style="font-family:var(--font-mono);font-size:9px;color:#aaa;margin-top:4px;">${pct.toFixed(0)}% terpakai</div>
+      <div style="font-family:var(--font-mono);font-size:9px;color:${isMinus ? 'var(--red)' : '#aaa'};margin-top:4px;">
+        ${isMinus ? `Defisit ${fmtRp(Math.abs(sisa))}` : `${pct.toFixed(0)}% terpakai`}
+      </div>
     </div>`;
   }).join('');
 }
@@ -1851,6 +1897,42 @@ async function uploadNota(file, budgetKode, userName, kategori, rincian) {
 }
 
 // ============================================================
+//  SALDO INDICATOR (live update saat pilih budget)
+// ============================================================
+async function updateSaldoIndicator() {
+  const budgetId = document.getElementById('tr-budgetRef').value;
+  const el = document.getElementById('saldo-indicator');
+  if (!budgetId) { el.style.display = 'none'; return; }
+
+  const budget = MASTER_DATA.budgets.find(b => b.id_budget === budgetId);
+  if (!budget) { el.style.display = 'none'; return; }
+
+  // Fetch spending untuk budget ini (exclude Pengembalian & Hutang)
+  const { data } = await db
+    .from('transactions')
+    .select('nominal, tipe')
+    .eq('id_budget_ref', budgetId)
+    .not('tipe', 'in', '("Pengembalian","Hutang")');
+
+  const spent = (data || []).reduce((s, t) => s + Number(t.nominal || 0), 0);
+  const sisa  = Number(budget.nominal_awal || 0) - spent;
+
+  el.style.display = 'block';
+  if (sisa < 0) {
+    el.className = 'danger';
+    el.innerHTML = `⛔ SALDO MINUS — Sisa: -${fmtRp(Math.abs(sisa))} · Transaksi baru akan ditolak`;
+  } else if (sisa < Number(budget.nominal_awal || 0) * 0.1) {
+    el.className = 'warn';
+    el.innerHTML = `⚠ SALDO TIPIS — Sisa: ${fmtRp(sisa)}`;
+  } else {
+    el.className = 'ok';
+    el.innerHTML = `✓ Sisa Saldo: ${fmtRp(sisa)}`;
+  }
+  // Simpan nilai sisa ke dataset untuk dipakai saveTransaction tanpa fetch ulang
+  el.dataset.sisa = sisa;
+}
+
+// ============================================================
 //  SAVE TRANSACTION
 // ============================================================
 async function saveTransaction() {
@@ -1888,6 +1970,64 @@ async function saveTransaction() {
       return;
     }
   }
+
+  // ── VALIDASI SALDO (3 POIN) ─────────────────────────────────
+  // Poin 2: Settlement — selalu lolos, skip validasi saldo
+  if (!settleId) {
+    // Ambil saldo terkini (pakai cache dari indicator, atau fetch ulang)
+    const indEl = document.getElementById('saldo-indicator');
+    let currentSisa;
+
+    if (indEl.dataset.sisa !== undefined && indEl.dataset.sisa !== '') {
+      currentSisa = Number(indEl.dataset.sisa);
+    } else {
+      // Fetch jika indicator belum di-cache
+      const budgetObj = MASTER_DATA.budgets.find(b => b.id_budget === budgetId);
+      const { data: spData } = await db
+        .from('transactions')
+        .select('nominal, tipe')
+        .eq('id_budget_ref', budgetId)
+        .not('tipe', 'in', '("Pengembalian","Hutang")');
+      const spent = (spData || []).reduce((s, t) => s + Number(t.nominal || 0), 0);
+      currentSisa = Number(budgetObj?.nominal_awal || 0) - spent;
+    }
+
+    // Poin 3: Saldo sudah minus SEBELUM transaksi ini → TOLAK
+    if (currentSisa < 0) {
+      Swal.fire({
+        icon: 'error',
+        title: '⛔ Transaksi Ditolak',
+        html: `Saldo budget saat ini sudah <strong style="color:#e83535;">-${fmtRp(Math.abs(currentSisa))}</strong> (minus).<br><br>Transaksi baru tidak dapat diproses karena saldo sudah defisit.`,
+        confirmButtonColor: '#0a0a0a'
+      });
+      return;
+    }
+
+    // Poin 1: Transaksi akan menyebabkan minus (tapi saldo sekarang masih ≥ 0) → WARN + konfirmasi
+    if (currentSisa - total < 0) {
+      const sisaSetelah = currentSisa - total;
+      const confirmRes = await Swal.fire({
+        icon: 'warning',
+        title: '⚠ Saldo Akan Minus',
+        html: `
+          <div style="text-align:left;font-family:monospace;font-size:13px;line-height:2.2;">
+            <div>Saldo saat ini &nbsp;&nbsp;: <strong>${fmtRp(currentSisa)}</strong></div>
+            <div>Nominal transaksi : <strong>${fmtRp(total)}</strong></div>
+            <hr style="margin:8px 0;border-color:#ddd;">
+            <div>Saldo setelah &nbsp;&nbsp;&nbsp;: <strong style="color:#e83535;">-${fmtRp(Math.abs(sisaSetelah))}</strong></div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:#777;">Saldo masih positif sebelumnya, transaksi tetap dapat diproses.</div>`,
+        showCancelButton: true,
+        confirmButtonColor: '#0a0a0a',
+        cancelButtonColor: '#888',
+        confirmButtonText: '✓ Tetap Proses',
+        cancelButtonText: '✕ Batal',
+        allowOutsideClick: false
+      });
+      if (!confirmRes.isConfirmed) return;
+    }
+  }
+  // ── END VALIDASI SALDO ──────────────────────────────────────
 
   showLoader(true);
 
@@ -2063,6 +2203,9 @@ async function resetForm(force = false) {
     document.getElementById('tr-total').dataset.raw = 0;
     document.getElementById('tr-user').value = CURRENT_USER?.email?.split('@')[0] || '';
     document.getElementById('tr-budgetRef').value = '';
+    // Reset saldo indicator
+    const si = document.getElementById('saldo-indicator');
+    si.style.display = 'none'; si.dataset.sisa = '';
     document.getElementById('tr-kategori').value = '';
     document.getElementById('tr-tipe').value = 'Reimburse';
     document.getElementById('tr-vendor').value = '';
