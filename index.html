@@ -853,7 +853,108 @@
   .budget-status-active { background: var(--green); color: var(--white); }
   .budget-status-closed { background: #888; color: var(--white); }
 
-  /* ===== INPUT FONT SIZE mobile fix ===== */
+  /* ===== NOTA GALLERY ===== */
+  .gallery-budget-select {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .gallery-budget-select select {
+    flex: 1; min-width: 200px; padding: 10px 14px;
+    border: var(--border); font-family: var(--font-mono); font-size: 12px;
+    background: var(--white); outline: none; cursor: pointer;
+  }
+  .gallery-budget-select .btn { white-space: nowrap; }
+
+  /* folder tabs */
+  .folder-tabs { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 0; }
+  .folder-tab {
+    padding: 8px 18px; font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; border: var(--border); border-bottom: none;
+    cursor: pointer; background: #e0dbd0; color: #888; margin-right: -3px; position: relative; z-index: 0;
+    transition: background 0.15s;
+  }
+  .folder-tab.active { background: var(--yellow); color: var(--black); z-index: 2; }
+  .folder-tab:hover:not(.active) { background: #d0cbc0; }
+
+  .folder-panel {
+    display: none; border: var(--border); padding: 20px;
+    background: var(--white); position: relative; z-index: 1;
+  }
+  .folder-panel.active { display: block; }
+
+  /* nota table */
+  .nota-gallery-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .nota-gallery-table th {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 10px 12px; text-align: left;
+    border-bottom: var(--border); background: var(--black); color: var(--white);
+  }
+  .nota-gallery-table td {
+    padding: 10px 12px; border-bottom: 2px solid #ddd; vertical-align: middle;
+  }
+  .nota-gallery-table tr:last-child td { border-bottom: none; }
+  .nota-gallery-table tr.selected-row { background: #fffde6; }
+  .nota-gallery-table tr:hover td { background: #f7f3e8; }
+  .nota-gallery-table tr.selected-row:hover td { background: #fffad0; }
+
+  /* nota thumb */
+  .nota-thumb-wrap {
+    width: 72px; height: 56px; border: 2px solid var(--black); overflow: hidden;
+    cursor: pointer; position: relative; background: #e8e3d8; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .nota-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .nota-thumb-wrap:hover::after {
+    content: '🔍'; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.5); display: flex; align-items: center;
+    justify-content: center; font-size: 20px; color: white;
+  }
+  .nota-thumb-noimg {
+    width: 72px; height: 56px; border: 2px dashed #bbb;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 8px; color: #aaa; text-align: center; line-height: 1.4;
+  }
+
+  /* selection bar */
+  .gallery-sel-bar {
+    display: none; position: sticky; bottom: 12px; left: 0; right: 0;
+    margin-top: 16px; padding: 12px 18px;
+    background: var(--black); color: var(--white); border: 3px solid var(--yellow);
+    box-shadow: var(--shadow); z-index: 10;
+    display: none; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .gallery-sel-bar.visible { display: flex; }
+  .gallery-sel-bar-label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .gallery-sel-bar-total {
+    font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--yellow);
+  }
+
+  /* preview modal */
+  #nota-preview-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 9999; align-items: center; justify-content: center; padding: 20px;
+  }
+  #nota-preview-modal.open { display: flex; }
+  .nota-preview-inner {
+    background: var(--white); border: var(--border); box-shadow: var(--shadow-lg);
+    max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .nota-preview-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: var(--border); background: var(--black); color: var(--white);
+  }
+  .nota-preview-header-label { font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+  .nota-preview-header-actions { display: flex; gap: 8px; }
+  .nota-preview-body { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .nota-preview-body img { max-width: 100%; max-height: 70vh; object-fit: contain; display: block; }
+  .nota-preview-close {
+    background: var(--red); color: white; border: none; padding: 6px 14px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  .nota-preview-close:hover { opacity: 0.85; }
+
   @media (max-width: 768px) {
     input, select, textarea {
       font-size: 16px !important;
@@ -1175,10 +1276,41 @@
               </tbody>
             </table>
           </div>
+        </div><!-- /card budget status -->
+
+        <!-- ===== NOTA GALLERY ===== -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-title">📁 GALERI NOTA PER BUDGET</div>
+          <div class="gallery-budget-select">
+            <select id="gallery-budget-sel" onchange="loadNotaGallery()">
+              <option value="">-- Pilih Budget --</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadNotaGallery()">↺ LOAD</button>
+          </div>
+          <div id="gallery-container">
+            <div style="font-family:var(--font-mono);font-size:11px;color:#aaa;padding:24px 0;text-align:center;">
+              Pilih budget untuk melihat galeri nota.
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-tutupbuku -->
+
+      <!-- PREVIEW MODAL -->
+      <div id="nota-preview-modal" onclick="closeNotaPreview(event)">
+        <div class="nota-preview-inner" onclick="event.stopPropagation()">
+          <div class="nota-preview-header">
+            <span class="nota-preview-header-label" id="preview-title">PREVIEW NOTA</span>
+            <div class="nota-preview-header-actions">
+              <a id="preview-download" href="#" download class="btn btn-sm" style="color:var(--white);background:var(--green);border-color:var(--green);">↓ DOWNLOAD</a>
+              <button class="nota-preview-close" onclick="closeNotaPreview()">✕ TUTUP</button>
+            </div>
+          </div>
+          <div class="nota-preview-body">
+            <img id="preview-img" src="" alt="Preview Nota">
+          </div>
         </div>
       </div>
-
-      <!-- ========================= REPORTS (ADMIN ONLY) ========================= -->
       <div id="tab-rekap" class="tab-pane admin-only">
         <div class="page-header">
           <div>
@@ -1613,6 +1745,9 @@ async function fetchMasterData() {
     MASTER_DATA.budgets.forEach(b => {
       repBudgetSel.add(new Option(`${b.kode_budget}${b.status==='CLOSED'?' [CLOSED]':''}`, b.id_budget));
     });
+
+    // Populate gallery budget selector (all budgets)
+    populateGalleryBudgetSelect();
 
   } catch (e) {
     Toast.fire({ icon: 'error', title: 'Gagal load data: ' + e.message });
@@ -2129,7 +2264,7 @@ async function saveTransaction() {
           parent_id:    settleId,
           kategori:     autoKategori,
           vendor:       null,
-          payment_status: 'UNPAID'
+          payment_status: diff < 0 ? 'PAID' : 'UNPAID'
         });
         if (autoErr) throw autoErr;
 
@@ -2944,14 +3079,201 @@ async function updateBudgetStatus(budgetId, newStatus) {
   await fetchMasterData();
 }
 
-async function saveBudgetRemarks(budgetId) {
-  const remarks = document.getElementById(`remarks-${budgetId}`)?.value || '';
-  showLoader(true);
-  const { error } = await db.from('master_budget').update({ remarks: remarks || null }).eq('id_budget', budgetId);
-  showLoader(false);
-  if (error) { Toast.fire({ icon: 'error', title: error.message }); return; }
-  Toast.fire({ icon: 'success', title: 'Remarks tersimpan!' });
+// ============================================================
+//  NOTA GALLERY
+// ============================================================
+
+function populateGalleryBudgetSelect() {
+  const sel = document.getElementById('gallery-budget-sel');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- Pilih Budget --</option>' +
+    MASTER_DATA.budgets.map(b =>
+      `<option value="${b.id_budget}" ${b.id_budget === current ? 'selected' : ''}>${b.kode_budget} — ${b.pic}</option>`
+    ).join('');
 }
+
+function getDirectLink(url) {
+  if (!url) return '';
+  const regex = /(?:\/d\/|id=)([\w-]+)/;
+  const match = url.match(regex);
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  }
+  return url;
+}
+
+async function loadNotaGallery() {
+  const budgetId  = document.getElementById('gallery-budget-sel').value;
+  const container = document.getElementById('gallery-container');
+  if (!budgetId) {
+    container.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:#aaa;padding:24px 0;text-align:center;">Pilih budget untuk melihat galeri nota.</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:#aaa;padding:24px 0;text-align:center;">Memuat data...</div>`;
+
+  const { data, error } = await db
+    .from('transactions')
+    .select('id_trans, user_name, nominal, tipe, rincian_nota, link_nota, kategori')
+    .eq('id_budget_ref', budgetId)
+    .order('kategori', { ascending: true });
+
+  if (error) { container.innerHTML = `<div style="color:var(--red);font-family:var(--font-mono);font-size:11px;">${error.message}</div>`; return; }
+
+  if (!data || !data.length) {
+    container.innerHTML = `<div style="font-family:var(--font-mono);font-size:11px;color:#aaa;padding:24px 0;text-align:center;">Tidak ada transaksi untuk budget ini.</div>`;
+    return;
+  }
+
+  // Group by kategori
+  const groups = {};
+  data.forEach(t => {
+    const key = t.kategori || '— Tanpa Kategori —';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+
+  const kategoriList = Object.keys(groups).sort();
+  const firstKat = kategoriList[0];
+
+  const tabsHtml = kategoriList.map((kat, i) =>
+    `<div class="folder-tab ${i === 0 ? 'active' : ''}" data-panel="fp-${i}" onclick="switchFolderTab(this)">${kat} <span style="font-size:9px;opacity:0.6;">(${groups[kat].length})</span></div>`
+  ).join('');
+
+  const panelsHtml = kategoriList.map((kat, i) => {
+    const rows = groups[kat];
+    const panelId = `fp-${i}`;
+    const rowsHtml = rows.map(t => {
+      const hasImg = t.link_nota && t.link_nota.trim();
+      const directLink = hasImg ? getDirectLink(t.link_nota) : '';
+      const thumbHtml = hasImg
+        ? `<div class="nota-thumb-wrap" onclick="openNotaPreview('${t.link_nota.replace(/'/g,"\\'")}','${(t.id_trans||'').replace(/'/g,"\\'")}')">
+             <img src="${directLink}" alt="nota" loading="lazy">
+           </div>`
+        : `<div class="nota-thumb-noimg">NO<br>NOTA</div>`;
+
+      const dlBtn = hasImg
+        ? `<a href="${t.link_nota}" download target="_blank" class="btn btn-sm" style="font-size:9px;padding:4px 8px;">↓</a>`
+        : `<span style="color:#ccc;font-family:var(--font-mono);font-size:10px;">—</span>`;
+
+      return `<tr data-nominal="${t.nominal || 0}" data-id="${t.id_trans}">
+        <td>
+          <input type="checkbox" class="nota-row-chk" style="width:16px;height:16px;cursor:pointer;accent-color:var(--black);"
+            onchange="updateGallerySelection('${panelId}')">
+        </td>
+        <td style="font-family:var(--font-mono);font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${t.id_trans}">${t.id_trans}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;">${t.user_name || '—'}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;text-align:right;">${fmtRp(t.nominal)}</td>
+        <td><span class="badge" style="font-size:8px;">${t.tipe || '—'}</span></td>
+        <td style="font-size:11px;max-width:180px;color:#555;">${t.rincian_nota || '—'}</td>
+        <td>${thumbHtml}</td>
+        <td>${dlBtn}</td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="folder-panel ${i === 0 ? 'active' : ''}" id="${panelId}">
+      <div style="overflow-x:auto;">
+        <table class="nota-gallery-table">
+          <thead>
+            <tr>
+              <th style="width:36px;">
+                <input type="checkbox" style="width:14px;height:14px;cursor:pointer;accent-color:var(--white);"
+                  onchange="toggleAllInFolder(this,'${panelId}')">
+              </th>
+              <th>ID Trans</th>
+              <th>User</th>
+              <th style="text-align:right;">Nominal</th>
+              <th>Tipe</th>
+              <th>Rincian</th>
+              <th>Nota</th>
+              <th style="width:48px;">DL</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="gallery-sel-bar" id="selbar-${panelId}">
+        <span class="gallery-sel-bar-label" id="selbar-label-${panelId}">0 item dipilih</span>
+        <span class="gallery-sel-bar-total" id="selbar-total-${panelId}">Rp 0</span>
+        <button class="btn btn-sm" style="background:var(--white);color:var(--black);font-size:10px;" onclick="clearGallerySelection('${panelId}')">✕ CLEAR</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="folder-tabs">${tabsHtml}</div>
+    ${panelsHtml}`;
+}
+
+function switchFolderTab(tabEl) {
+  const container = document.getElementById('gallery-container');
+  container.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
+  container.querySelectorAll('.folder-panel').forEach(p => p.classList.remove('active'));
+  tabEl.classList.add('active');
+  const panelId = tabEl.dataset.panel;
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.add('active');
+}
+
+function toggleAllInFolder(masterChk, panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.querySelectorAll('.nota-row-chk').forEach(chk => { chk.checked = masterChk.checked; });
+  panel.querySelectorAll('tr[data-nominal]').forEach(tr => { tr.classList.toggle('selected-row', masterChk.checked); });
+  updateGallerySelection(panelId);
+}
+
+function updateGallerySelection(panelId) {
+  const panel  = document.getElementById(panelId);
+  const selBar = document.getElementById('selbar-' + panelId);
+  const label  = document.getElementById('selbar-label-' + panelId);
+  const total  = document.getElementById('selbar-total-' + panelId);
+  if (!panel || !selBar) return;
+
+  let count = 0, sum = 0;
+  panel.querySelectorAll('tr[data-nominal]').forEach(tr => {
+    const chk = tr.querySelector('.nota-row-chk');
+    if (chk && chk.checked) {
+      tr.classList.add('selected-row');
+      count++;
+      sum += Number(tr.dataset.nominal || 0);
+    } else {
+      tr.classList.remove('selected-row');
+    }
+  });
+
+  if (count > 0) {
+    selBar.classList.add('visible');
+    label.textContent = `${count} item dipilih`;
+    total.textContent = fmtRp(sum);
+  } else {
+    selBar.classList.remove('visible');
+  }
+}
+
+function clearGallerySelection(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.querySelectorAll('.nota-row-chk').forEach(c => { c.checked = false; });
+  const masterChk = panel.querySelector('thead input[type=checkbox]');
+  if (masterChk) masterChk.checked = false;
+  updateGallerySelection(panelId);
+}
+
+function openNotaPreview(url, idTrans) {
+  document.getElementById('preview-img').src       = url;
+  document.getElementById('preview-title').textContent = 'PREVIEW — ' + idTrans;
+  document.getElementById('preview-download').href = url;
+  document.getElementById('nota-preview-modal').classList.add('open');
+}
+
+function closeNotaPreview(e) {
+  if (e && e.target !== document.getElementById('nota-preview-modal') && e.type === 'click') return;
+  document.getElementById('nota-preview-modal').classList.remove('open');
+  document.getElementById('preview-img').src = '';
+}
+
 </script>
 </body>
 </html>
